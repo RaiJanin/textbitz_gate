@@ -2,6 +2,7 @@
 
 namespace App\Services\Data;
 
+use App\Models\Gate;
 use App\Models\NotificationPreference;
 use App\Models\Student;
 use App\Models\TapEvent;
@@ -42,6 +43,50 @@ class PullTapsFromServer
         });
 
         self::cacheReport($totals);
+    }
+
+    /**
+     * Recurring pull (connectivity heartbeat). Gates aren't per-user like
+     * students are, so this just uses whichever authenticated account is
+     * available to make the /api/gates call. No /api/me equivalent exists
+     * for gates, so this is the only path that keeps local Gate rows
+     * (name, status, last_seen_at) from silently going stale — previously
+     * they were only ever set once, by DemoSeeder, and never touched again.
+     */
+    public static function refreshGates(): void
+    {
+        if (! ServerConnectivityService::isOnline()) {
+            return;
+        }
+
+        $user = User::whereNotNull('remote_token')->first();
+
+        if (! $user) {
+            return;
+        }
+
+        $response = RemoteApiClient::get($user, '/api/gates');
+
+        if ($response['result'] !== RemoteApiClient::RESULT_SUCCESS) {
+            Log::info('PullTapsFromServer: /api/gates not available', ['result' => $response['result']]);
+
+            return;
+        }
+
+        collect($response['data']['gates'] ?? [])->each(fn (array $remote) => self::upsertGate($remote));
+    }
+
+    private static function upsertGate(array $remote): Gate
+    {
+        return Gate::updateOrCreate(
+            ['remote_id' => $remote['id']],
+            [
+                'name' => $remote['name'],
+                'status' => $remote['status'] ?? null,
+                'last_seen_at' => $remote['last_seen_at'] ?? null,
+                'synced_at' => now(),
+            ],
+        );
     }
 
     /**

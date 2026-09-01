@@ -19,3 +19,8 @@ Schedule::call(fn () => PullTapsFromServer::refreshLinkedStudents())
     ->everyMinute()
     ->name('refresh-linked-students')
     ->withoutOverlapping(1);
+
+Schedule::call(fn () => PullTapsFromServer::refreshGates())
+    ->everyMinute()
+    ->name('refresh-gates')
+    ->withoutOverlapping(1);

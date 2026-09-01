@@ -15,5 +15,6 @@ class SyncPendingClientData
         RemoteAuthService::verifyAllTokens();
         DataSyncToJob::retryPendingSyncs();
         PullTapsFromServer::refreshLinkedStudents();
+        PullTapsFromServer::refreshGates();
     }
 }
