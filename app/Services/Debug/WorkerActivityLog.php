@@ -89,6 +89,11 @@ class WorkerActivityLog
                 'online' => (bool) Cache::get('remote_connectivity_last_known', false),
                 'checked_recently' => Cache::has('remote_connectivity'),
             ],
+            'lifecycle' => [
+                // Mobile has no daemons — workers run on these app-lifecycle events.
+                'last_foreground_at' => self::msToIso(Cache::get('gate.last_foreground_at')),
+                'last_background_at' => self::msToIso(Cache::get('gate.last_background_at')),
+            ],
             'sync' => Cache::get(\App\Services\Data\PullTapsFromServer::REPORT_CACHE_KEY),
         ];
     }
@@ -130,6 +135,11 @@ class WorkerActivityLog
     private static function tableCount(string $table): ?int
     {
         return Schema::hasTable($table) ? DB::table($table)->count() : null;
+    }
+
+    private static function msToIso(mixed $ms): ?string
+    {
+        return $ms ? now()->createFromTimestampMs((int) $ms)->toIso8601String() : null;
     }
 
     private static function oldestPending(): ?string

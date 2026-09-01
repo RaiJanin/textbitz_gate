@@ -41,6 +41,7 @@ function reloadLinked() {
 
                 <Logout />
 
+                <SettingsCard v-if="onDebug" label="Native Sandbox" :icon="Bug" :action="() => router.get('/native-sandbox')" />
                 <SettingsCard v-if="onDebug" label="Debug Logs" :icon="Bug" :action="() => router.get('/debug/logs')" />
                 <SettingsCard v-if="onDebug" label="Debug Extensions" :icon="Bug" :action="() => router.get('/debug-extensions')" />
             </div>

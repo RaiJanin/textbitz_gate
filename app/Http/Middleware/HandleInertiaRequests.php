@@ -4,6 +4,7 @@ namespace App\Http\Middleware;
 
 use Illuminate\Http\Request;
 use Inertia\Middleware;
+use App\Models\NotificationPreference;
 use App\Models\Student;
 use App\Services\Data\PullTapsFromServer;
 use App\Services\Resolvers\PlatformService;
@@ -53,6 +54,11 @@ class HandleInertiaRequests extends Middleware
                     ? Student::query()->whereNotNull('remote_id')->orderBy('id')->pluck('remote_id')->values()
                     : [],
                 'sync' => fn () => cache(PullTapsFromServer::REPORT_CACHE_KEY),
+                // Guardian toggles so local notifications can be filtered client-side.
+                'notificationPreferences' => fn () => $request->user()
+                    ? NotificationPreference::where('role', NotificationPreference::ROLE_GUARDIAN)
+                        ->first(['arrival', 'departure', 'late_alert', 'weekly_summary'])
+                    : null,
             ],
         ];
     }

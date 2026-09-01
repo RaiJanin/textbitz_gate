@@ -10,8 +10,9 @@
         "infer-conventions",
         "laravel-best-practices",
         "pest-testing",
-        "echo-development",
         "inertia-vue-development",
+        "echo-vue-development",
+        "echo-development",
         "tailwindcss-development",
         "nativephp-mobile"
     ]

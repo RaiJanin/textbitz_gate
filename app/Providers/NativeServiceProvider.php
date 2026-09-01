@@ -37,13 +37,12 @@ class NativeServiceProvider extends ServiceProvider
             \Native\Mobile\Providers\DialogServiceProvider::class,
             \Native\Mobile\Providers\DeviceServiceProvider::class,
 
-            // Background push (FCM/APNS). Install `nativephp/mobile-firebase`,
-            // drop google-services.json / GoogleService-Info.plist in the app
-            // root, then register its provider here. The rest is already wired:
-            //   - PHP: EnrollPushNotifications middleware + RegisterPushToken listener
-            //   - JS:  startPushNotifications() in app.js (mobile-only)
-            //   → device token is POSTed to /api/device-tokens and forwarded to the server.
-            // \Native\Mobile\Firebase\FirebaseServiceProvider::class,
+            // No Firebase. Notifications are LOCAL: raised on-device from realtime
+            // Reverb events + the recurring PullTapsFromServer sync via the Web
+            // Notifications API + public/notification-sw.js (see
+            // resources/js/Composables/useLocalNotifications.js).
+            \Djurovicigoor\AppLifecycle\AppLifecycleServiceProvider::class,
+        
         ];
     }
 }

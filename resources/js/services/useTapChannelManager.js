@@ -1,6 +1,7 @@
 import { reactive } from 'vue'
-import crossPlatformToast from '@/helpers/crossPlatformToast'
 import { usePage } from '@inertiajs/vue3'
+import crossPlatformToast from '@/helpers/crossPlatformToast'
+import { notify } from '@/Composables/useLocalNotifications'
 
 /**
  * Subscribes to a private `student.{id}` channel per linked student plus the
@@ -57,12 +58,31 @@ export function subscribeToStudent(studentId) {
         .listen('.TapRecorded', (e) => {
             applyTap(studentId, e)
 
-            const verb = e.direction === 'in' ? 'tapped IN' : 'tapped OUT'
+            const arriving = e.direction === 'in'
+            const verb = arriving ? 'tapped IN' : 'tapped OUT'
             const late = e.is_late ? ' — late' : ''
+
             toast.show(`${e.student_name} ${verb} at ${e.gate_name ?? 'the gate'}${late}`)
+
+            notify({
+                title: `${e.student_name} ${verb}`,
+                body: `${e.gate_name ?? 'School gate'} · ${e.at ?? ''}${late}`.trim(),
+                tag: `student-${studentId}`,
+                url: '/home',
+                kind: e.is_late ? 'late_alert' : (arriving ? 'arrival' : 'departure'),
+            })
         })
         .listen('.StudentMarkedAbsent', (e) => {
             toast.error(`${e.student_name} was marked absent on ${e.date}`)
+
+            notify({
+                title: `${e.student_name} was marked absent`,
+                body: `No gate taps on ${e.date}. Contact the school if this looks wrong.`,
+                tag: `absent-${studentId}`,
+                url: '/alerts',
+                kind: 'late_alert',
+                priority: 'high',
+            })
         })
         .error((error) => console.warn(`student.${studentId} channel error`, error))
 }
@@ -77,10 +97,19 @@ export function subscribeToLinkedStudents() {
         accountChannel
             .listen('.GuardianLinkedToStudent', (e) => {
                 toast.success(`Linked to ${e.student_name}`)
+                notify({ title: `Linked to ${e.student_name}`, tag: 'link', url: '/settings' })
                 subscribeToStudent(e.student_id)
             })
             .listen('.StudentMarkedAbsent', (e) => {
                 toast.error(`${e.student_name} was marked absent on ${e.date}`)
+                notify({
+                    title: `${e.student_name} was marked absent`,
+                    body: `No gate taps on ${e.date}.`,
+                    tag: `absent-${e.student_id ?? 'x'}`,
+                    url: '/alerts',
+                    kind: 'late_alert',
+                    priority: 'high',
+                })
             })
             .error((error) => console.warn('account channel error', error))
     }

@@ -6,7 +6,12 @@ use Illuminate\Support\Facades\Vite;
 use Illuminate\Support\ServiceProvider;
 use App\Services\Resolvers\RouteMacroService;
 use App\Services\Data\DefaultDataSeeder;
+use App\Support\Lifecycle\FlushOnBackground;
+use App\Support\Lifecycle\RunMobileWorkers;
+use Djurovicigoor\AppLifecycle\Events\AppBackgrounded;
+use Djurovicigoor\AppLifecycle\Events\AppForegrounded;
 use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\RateLimiter;
 
 class AppServiceProvider extends ServiceProvider
@@ -29,6 +34,8 @@ class AppServiceProvider extends ServiceProvider
         RouteMacroService::register();
 
         DefaultDataSeeder::dataSeed(seedDemoData: config('app.demo_mode', false));
+
+        Event::listen(AppBackgrounded::class, [FlushOnBackground::class, 'handle']);
 
         if (config('app.debug')) {
             \App\Services\Debug\WorkerActivityLog::register();

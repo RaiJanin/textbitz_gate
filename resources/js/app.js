@@ -9,7 +9,9 @@ import { vLongPress } from './directives/longPress';
 import '@fortawesome/fontawesome-free/css/all.min.css';
 import { subscribeToLinkedStudents } from './services/useTapChannelManager';
 import { startSyncNotifier } from './Composables/useSyncNotifier';
-import { startPushNotifications } from './Composables/usePushNotifications';
+import { initLocalNotifications } from './Composables/useLocalNotifications';
+import { primePushNotifications } from './Composables/usePushPriming';
+import { startAppLifecycle } from './Composables/useAppLifecycle';
 import { useEchoDebug } from './Composables/useEchoDebug';
 import { useWorkerDebug } from './Composables/useWorkerDebug';
 
@@ -32,9 +34,11 @@ createInertiaApp({
 
         useEchoDebug();           // start capturing Reverb connection state immediately
         useWorkerDebug();         // start polling scheduler / queue status
+        initLocalNotifications();   // register the SW + read notification permission (Firebase-free)
         subscribeToLinkedStudents();
         startSyncNotifier();
-        startPushNotifications();
+        startAppLifecycle();       // re-sync on foreground / flush on background (mobile lifecycle plugin)
+        primePushNotifications();   // first-run: ask for the OS notification permission (mobile only)
 
         // Pick up newly-linked students / a page that first exposes the list.
         router.on('navigate', () => subscribeToLinkedStudents());

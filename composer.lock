@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "0006a45eba6a9815729c977233560068",
+    "content-hash": "aa475aba97dbd626cf76663e10351a59",
     "packages": [
         {
             "name": "bacon/bacon-qr-code",
@@ -443,6 +443,57 @@
                 "source": "https://github.com/dflydev/dflydev-dot-access-data/tree/v3.0.3"
             },
             "time": "2024-07-08T12:26:09+00:00"
+        },
+        {
+            "name": "djurovicigoor/app-lifecycle",
+            "version": "v1.0.0",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/djurovicigoor/app-lifecycle.git",
+                "reference": "84fae1fb1a960a9c24e54561c0fc66efaa992057"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/djurovicigoor/app-lifecycle/zipball/84fae1fb1a960a9c24e54561c0fc66efaa992057",
+                "reference": "84fae1fb1a960a9c24e54561c0fc66efaa992057",
+                "shasum": ""
+            },
+            "require": {
+                "nativephp/mobile": "^3.0",
+                "php": "^8.2"
+            },
+            "type": "nativephp-plugin",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "Djurovicigoor\\AppLifecycle\\AppLifecycleServiceProvider"
+                    ]
+                },
+                "nativephp": {
+                    "manifest": "nativephp.json"
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Djurovicigoor\\AppLifecycle\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Djurovic Igor",
+                    "email": "djurovic.igoor@gmail.com"
+                }
+            ],
+            "description": "App lifecycle state detection plugin for NativePHP Mobile detects foreground/background transitions on Android and iOS.",
+            "support": {
+                "issues": "https://github.com/djurovicigoor/app-lifecycle/issues",
+                "source": "https://github.com/djurovicigoor/app-lifecycle/tree/v1.0.0"
+            },
+            "time": "2026-03-09T13:30:38+00:00"
         },
         {
             "name": "doctrine/inflector",

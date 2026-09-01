@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\NativeSandboxController;
 use App\Http\Controllers\WorkerStatusController;
 use App\Services\Data\PullTapsFromServer;
 use App\Services\Resolvers\PlatformService;
@@ -66,6 +67,10 @@ if (config('app.debug')) {
 
         return response()->json(['refreshed' => true]);
     });
+
+    // Native bridge sandbox
+    Route::get('/native-sandbox', [NativeSandboxController::class, 'index'])->name('native-sandbox');
+    Route::get('/debug/native/probe', [NativeSandboxController::class, 'probe']);
 
     // Scheduler + queue-worker overlay
     Route::get('/debug/workers', [WorkerStatusController::class, 'show']);

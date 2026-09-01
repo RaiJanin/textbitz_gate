@@ -60,6 +60,10 @@ const queueBad = computed(() => (w.queue.failed || 0) > 0 || (w.queue.pending ||
                     <span v-if="j.error" class="err">{{ j.error }}</span>
                 </div>
 
+                <div class="sub">lifecycle (mobile)</div>
+                <div class="kv"><span>foregrounded</span><code>{{ w.lifecycle?.last_foreground_at ? ago(w.lifecycle.last_foreground_at) + ' ago' : '—' }}</code></div>
+                <div class="kv"><span>backgrounded</span><code>{{ w.lifecycle?.last_background_at ? ago(w.lifecycle.last_background_at) + ' ago' : '—' }}</code></div>
+
                 <div class="sub">last sync</div>
                 <div class="kv"><span>at</span><code>{{ w.sync?.at ? ago(w.sync.at) + ' ago' : '—' }}</code></div>
                 <div class="kv"><span>changes</span><code>{{ (w.sync?.new_taps ?? 0) }} new / {{ (w.sync?.updated_taps ?? 0) }} upd</code></div>

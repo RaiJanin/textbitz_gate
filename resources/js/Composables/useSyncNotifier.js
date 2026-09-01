@@ -1,9 +1,11 @@
 import crossPlatformToast from '@/helpers/crossPlatformToast'
+import { notify } from '@/Composables/useLocalNotifications'
 
 /**
- * Toasts when the recurring background pull (PullTapsFromServer) brings in new
- * attendance data. Polls the plain-JSON `/api/sync/status` endpoint — never
- * Inertia, so a stray 401 can't bounce the app to the login screen.
+ * Raises a notification when the recurring background pull (PullTapsFromServer)
+ * brings in new attendance data — the Firebase-free path that still works when
+ * the Reverb socket is down. Polls the plain-JSON `/api/sync/status` endpoint
+ * (never Inertia, so a stray 401 can't bounce the app to login).
  */
 
 const toast = crossPlatformToast()
@@ -39,11 +41,17 @@ function announce({ report, pending_writes }) {
 
         if (total > 0 && !first) {
             const who = (report.students ?? []).join(', ')
-            toast.show(
-                total === 1
-                    ? `New gate activity${who ? ` — ${who}` : ''}`
-                    : `${total} attendance updates synced${who ? ` — ${who}` : ''}`,
-            )
+            const summary = total === 1
+                ? `New gate activity${who ? ` — ${who}` : ''}`
+                : `${total} attendance updates synced${who ? ` — ${who}` : ''}`
+
+            toast.show(summary)
+            notify({
+                title: total === 1 ? 'New gate activity' : `${total} attendance updates`,
+                body: who || 'Open TextBitz Gate to see the latest.',
+                tag: 'gate-sync',
+                url: '/home',
+            })
         }
     }
 
@@ -54,8 +62,6 @@ function announce({ report, pending_writes }) {
 }
 
 async function poll() {
-    if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return
-
     try {
         const { data } = await window.axios.get(route('api.sync.status'))
         announce(data)

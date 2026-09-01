@@ -7,6 +7,7 @@ use App\Models\NotificationPreference;
 use App\Models\Student;
 use App\Models\TapEvent;
 use App\Models\User;
+use App\Services\Remote\RemoteAuthService;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Hash;
@@ -25,13 +26,19 @@ use Illuminate\Support\Facades\Hash;
  *     Alerts feed shows late, absence and weekly-summary entries
  *   - default guardian notification preferences
  *
- * Everything is written straight into the local SQLite cache, so the app is
- * fully usable with no server running. Idempotent.
+ * The local dataset (children, gates, attendance history) is written straight
+ * into the local SQLite cache, so the app is fully usable with no server
+ * running. The guardian login itself is a real account: on seed, it attempts
+ * a real remote login (see RemoteAuthService::authenticateOrDefer). If the
+ * server is unreachable at seed time, remote_id/remote_token stay null and
+ * the login is deferred until the server comes back online. Idempotent.
  */
 class DemoSeeder extends Seeder
 {
     private const TZ = 'Asia/Manila';
     private const WEEKDAYS_OF_HISTORY = 35;
+
+    private const DEMO_PASSWORD = 'password';
 
     public function run(): void
     {
@@ -40,12 +47,19 @@ class DemoSeeder extends Seeder
             [
                 'name' => 'Elena Reyes',
                 'email' => 'parent@textbitzgate.test',
-                'password' => Hash::make('password'),
+                'password' => Hash::make(self::DEMO_PASSWORD),
                 'email_verified_at' => now(),
-                'remote_id' => 1,
                 'active_role' => 'guardian',
             ],
         );
+
+        // Demo accounts are real accounts too — try to log this one in against
+        // the actual remote server now. If it's unreachable, remote_id/remote_token
+        // stay null and RemoteAuthService defers the login; the existing
+        // ServerConnectionRestored -> SyncPendingClientData listener flushes it
+        // automatically once the server comes back, exactly like a real user's
+        // deferred login.
+        RemoteAuthService::authenticateOrDefer($user, self::DEMO_PASSWORD);
 
         NotificationPreference::updateOrCreate(
             ['role' => NotificationPreference::ROLE_GUARDIAN],
