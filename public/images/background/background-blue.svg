@@ -1,0 +1,34 @@
+<svg width="877" height="800" viewBox="0 0 877 800" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="blob1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1e3a8a" stop-opacity="0.95"/>
+      <stop offset="45%" stop-color="#2563eb" stop-opacity="0.9"/>
+      <stop offset="100%" stop-color="#60a5fa" stop-opacity="0.85"/>
+    </linearGradient>
+    <linearGradient id="blob2" x1="100%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#0ea5e9" stop-opacity="0.55"/>
+      <stop offset="100%" stop-color="#38bdf8" stop-opacity="0.25"/>
+    </linearGradient>
+    <linearGradient id="blob3" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#1d4ed8" stop-opacity="0.4"/>
+      <stop offset="100%" stop-color="#93c5fd" stop-opacity="0.15"/>
+    </linearGradient>
+  </defs>
+
+  <path fill="url(#blob3)" d="M60,120 C220,10 480,-30 660,90 C830,200 850,420 740,560
+    C630,700 400,760 210,690 C20,620 -60,470 20,320 C50,260 30,180 60,120 Z"/>
+
+  <path fill="url(#blob1)" d="M120,180 C280,60 520,40 660,150 C790,250 800,440 700,560
+    C600,680 400,730 240,660 C90,595 -10,460 40,330 C70,255 60,220 120,180 Z"/>
+
+  <path fill="url(#blob2)" d="M300,60 C450,20 600,90 640,220 C680,350 610,470 480,510
+    C350,550 220,480 190,360 C165,260 200,100 300,60 Z"/>
+
+  <g opacity="0.5">
+    <circle cx="180" cy="240" r="6" fill="#93c5fd"/>
+    <circle cx="540" cy="140" r="4" fill="#bfdbfe"/>
+    <circle cx="620" cy="480" r="5" fill="#93c5fd"/>
+    <circle cx="260" cy="560" r="4" fill="#bfdbfe"/>
+    <circle cx="440" cy="360" r="3" fill="#dbeafe"/>
+  </g>
+</svg>
