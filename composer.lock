@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "aa475aba97dbd626cf76663e10351a59",
+    "content-hash": "c39991182ef0834b6dbbd21ed56db35a",
     "packages": [
         {
             "name": "bacon/bacon-qr-code",
@@ -911,6 +911,69 @@
                 "source": "https://github.com/igorw/evenement/tree/v3.0.2"
             },
             "time": "2023-08-08T05:53:35+00:00"
+        },
+        {
+            "name": "fatlum/nativephp-push",
+            "version": "0.1.3",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/FatlumGjinofci/nativephp-push.git",
+                "reference": "8b33a64e1b1753f560b153c80afbb1e1845d7ad8"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/FatlumGjinofci/nativephp-push/zipball/8b33a64e1b1753f560b153c80afbb1e1845d7ad8",
+                "reference": "8b33a64e1b1753f560b153c80afbb1e1845d7ad8",
+                "shasum": ""
+            },
+            "require": {
+                "nativephp/mobile": "^3.2",
+                "php": "^8.2"
+            },
+            "suggest": {
+                "google/auth": "Server-side only: required by Lumi\\NativePush\\Server\\FcmSender to mint FCM v1 tokens. Run `composer require google/auth` on the machine that SENDS pushes."
+            },
+            "type": "nativephp-plugin",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "Lumi\\NativePush\\PushServiceProvider"
+                    ]
+                },
+                "nativephp": {
+                    "manifest": "nativephp.json"
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Lumi\\NativePush\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Fatlum Gjinofci",
+                    "email": "fgjinofci@gmail.com"
+                }
+            ],
+            "description": "Free FCM/APNs push notifications for NativePHP Mobile — the native layer that the paid nativephp/mobile-firebase plugin charges for, wired into the existing (MIT) core PHP API.",
+            "homepage": "https://github.com/FatlumGjinofci/nativephp-push",
+            "keywords": [
+                "FCM",
+                "apns",
+                "firebase",
+                "nativephp",
+                "notifications",
+                "push"
+            ],
+            "support": {
+                "issues": "https://github.com/FatlumGjinofci/nativephp-push/issues",
+                "source": "https://github.com/FatlumGjinofci/nativephp-push"
+            },
+            "time": "2026-07-27T14:00:21+00:00"
         },
         {
             "name": "fruitcake/php-cors",

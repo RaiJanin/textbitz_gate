@@ -37,12 +37,26 @@ class NativeServiceProvider extends ServiceProvider
             \Native\Mobile\Providers\DialogServiceProvider::class,
             \Native\Mobile\Providers\DeviceServiceProvider::class,
 
-            // No Firebase. Notifications are LOCAL: raised on-device from realtime
-            // Reverb events + the recurring PullTapsFromServer sync via the Web
-            // Notifications API + public/notification-sw.js (see
-            // resources/js/Composables/useLocalNotifications.js).
             \Djurovicigoor\AppLifecycle\AppLifecycleServiceProvider::class,
-        
+
+            // FCM/APNs push — `fatlum/nativephp-push` (free, MIT). It backs
+            // NativePHP core's `PushNotifications` facade + the
+            // `PushNotification\TokenGenerated` event natively, and adds
+            // `Lumi\NativePush\Events\PushNotificationReceived` for data
+            // messages — which is exactly what the app code targets.
+            //
+            // Remaining setup:
+            //   - resources/google-services.json      (Android)
+            //   - resources/GoogleService-Info.plist  (iOS) + APS_ENVIRONMENT
+            //   - server: FCM_ENABLED=true, FCM_PROJECT_ID, FIREBASE_CREDENTIALS
+            //   - php artisan native:run android
+            //
+            // Wired: usePushNotifications.js / usePushPriming.js (JS via
+            // #nativephp) · EnrollPushNotifications middleware · RegisterPushToken
+            // + HandlePushMessage listeners (explicit in AppServiceProvider) ·
+            // POST /api/device-tokens → server. useLocalNotifications.js is the
+            // in-app / no-token fallback.
+            \Lumi\NativePush\PushServiceProvider::class,
         ];
     }
 }

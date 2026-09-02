@@ -7,6 +7,7 @@ use Illuminate\Http\JsonResponse;
 use Inertia\Inertia;
 use Inertia\Response;
 use Native\Mobile\Facades\Device;
+use Native\Mobile\Facades\PushNotifications;
 use Native\Mobile\Facades\System;
 
 /**
@@ -45,6 +46,8 @@ class NativeSandboxController extends Controller
                 $this->check('Device::getInfo()', fn () => Device::getInfo()),
                 $this->check('Device::getId()', fn () => Device::getId()),
                 $this->check('Device::getBatteryInfo()', fn () => Device::getBatteryInfo()),
+                $this->check('PushNotifications::checkPermission()  [FCM]', fn () => PushNotifications::checkPermission()),
+                $this->check('PushNotifications::getToken()  [FCM]', fn () => PushNotifications::getToken()),
             ]);
         }
 

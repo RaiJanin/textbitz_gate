@@ -2,14 +2,17 @@ import { usePage } from '@inertiajs/vue3'
 import { requestNotificationPermission } from '@/Composables/useLocalNotifications'
 
 /**
- * First-run notification permission for the mobile app.
+ * First-run notification permission (mobile only, runs once — remembered in
+ * localStorage).
  *
- * Firebase-free: this asks for the Web Notifications permission, which surfaces
- * the OS's own permission modal inside the web view. Runs once — the decision
- * is remembered in localStorage. No-op on web/desktop.
+ * Primary: FCM via `fatlum/nativephp-push` — `pushNotifications.enroll()`
+ * shows the real OS permission modal and hooks token delivery.
+ * Fallback: the Web Notifications permission, used by useLocalNotifications
+ * when the plugin isn't present.
  */
 
-const STORE_KEY = 'gate.notify.prime' // 'granted' | 'denied' | 'unsupported'
+const STORE_KEY = 'gate.notify.prime' // 'granted' | 'denied' | 'unsupported' | 'asked'
+const status = (r) => (typeof r === 'string' ? r : (r?.status ?? null))
 
 function stored() {
     try {
@@ -27,6 +30,44 @@ function remember(value) {
     }
 }
 
+async function tryFcmEnrol() {
+    let native
+    try {
+        native = await import('#nativephp')
+    } catch {
+        return false
+    }
+
+    const push = native.pushNotifications
+    if (!push?.enroll || !push?.checkPermission) {
+        return false // plugin absent
+    }
+
+    try {
+        const current = status(await push.checkPermission())
+        if (current === 'granted' || current === 'denied') {
+            remember(current)
+            return true
+        }
+
+        push.enroll() // native OS permission modal
+        remember('asked')
+
+        setTimeout(async () => {
+            try {
+                const after = status(await push.checkPermission())
+                if (['granted', 'denied'].includes(after)) remember(after)
+            } catch {
+                /* leave as 'asked' */
+            }
+        }, 2000)
+
+        return true
+    } catch {
+        return false
+    }
+}
+
 export async function primePushNotifications() {
     const platform = usePage().props?.platform
     if (!platform?.isAndroid && !platform?.isIos) {
@@ -37,10 +78,12 @@ export async function primePushNotifications() {
         return
     }
 
-    // Let the first screen settle before the OS modal interrupts.
     setTimeout(async () => {
+        if (await tryFcmEnrol()) {
+            return
+        }
+        // Fallback: Web Notifications permission (drives useLocalNotifications).
         const result = await requestNotificationPermission()
-        // Persist any terminal outcome so we don't re-prompt on every launch.
         if (['granted', 'denied', 'unsupported'].includes(result)) {
             remember(result)
         }

@@ -62,6 +62,29 @@ if (config('app.debug')) {
         return response()->json($lines);
     });
 
+    Route::get('/debug/demo', function () {
+        $counts = fn () => [
+            'users' => \App\Models\User::count(),
+            'students' => \App\Models\Student::count(),
+            'gates' => \App\Models\Gate::count(),
+            'tap_events' => \App\Models\TapEvent::count(),
+            'preferences' => \App\Models\NotificationPreference::count(),
+        ];
+
+        $before = $counts();
+
+        if (request()->boolean('seed')) {
+            (new \Database\Seeders\DemoSeeder)->run(connectRemote: request()->boolean('connect'));
+        }
+
+        return response()->json([
+            'demo_mode' => config('app.demo_mode'),
+            'before' => $before,
+            'after' => $counts(),
+            'hint' => 'Add ?seed=1 to force-seed (idempotent), &connect=1 to also bridge the remote login.',
+        ]);
+    });
+
     Route::get('/debug/taps/refresh', function () {
         PullTapsFromServer::refreshLinkedStudents();
 

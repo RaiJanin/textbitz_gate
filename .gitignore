@@ -35,3 +35,4 @@ Thumbs.db
 # Credential files (keystores, private keys, etc.)
 /credentials/
 *.jks
+/resources/google-services.json

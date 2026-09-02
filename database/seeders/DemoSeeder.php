@@ -40,7 +40,13 @@ class DemoSeeder extends Seeder
 
     private const DEMO_PASSWORD = 'password';
 
-    public function run(): void
+    /**
+     * @param  bool  $connectRemote  Bridge the demo account to the remote server
+     *   now. Skipped on the boot auto-seed path — a synchronous connectivity
+     *   ping there would hang the first screen load. It's bridged anyway on the
+     *   user's first login (AuthenticatedSessionController) or the next heartbeat.
+     */
+    public function run(bool $connectRemote = true): void
     {
         $user = User::updateOrCreate(
             ['phone_number' => '+639171234567'],
@@ -53,13 +59,12 @@ class DemoSeeder extends Seeder
             ],
         );
 
-        // Demo accounts are real accounts too — try to log this one in against
-        // the actual remote server now. If it's unreachable, remote_id/remote_token
-        // stay null and RemoteAuthService defers the login; the existing
-        // ServerConnectionRestored -> SyncPendingClientData listener flushes it
-        // automatically once the server comes back, exactly like a real user's
-        // deferred login.
-        RemoteAuthService::authenticateOrDefer($user, self::DEMO_PASSWORD);
+        if ($connectRemote) {
+            // Demo accounts are real accounts too. If the server is unreachable,
+            // RemoteAuthService defers the login and the ServerConnectionRestored
+            // -> SyncPendingClientData listener flushes it once it's back.
+            RemoteAuthService::authenticateOrDefer($user, self::DEMO_PASSWORD);
+        }
 
         NotificationPreference::updateOrCreate(
             ['role' => NotificationPreference::ROLE_GUARDIAN],

@@ -15,7 +15,7 @@ window.Echo = new Echo({
     authorizer: (channel) => ({
         authorize: (socketId, callback) => {
             window.axios
-                .post(route('api.broadcasting.auth'), {
+                .post(route('api.broadcasting.auth', undefined, false), {
                     socket_id: socketId,
                     channel_name: channel.name,
                 })

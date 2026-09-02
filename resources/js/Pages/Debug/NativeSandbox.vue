@@ -62,8 +62,10 @@ const tests = {
     'device.getInfo()': () => need().device.getInfo(),
     'device.getBatteryInfo()': () => need().device.getBatteryInfo(),
     'device.getId()': () => need().device.getId(),
-    'Notification.permission': () => (typeof Notification !== 'undefined' ? Notification.permission : 'unsupported'),
-    'navigator.serviceWorker ready': async () =>
+    'pushNotifications.checkPermission()  [FCM]': () => need().pushNotifications?.checkPermission?.() ?? 'plugin absent',
+    'pushNotifications.getToken()  [FCM]': () => need().pushNotifications?.getToken?.() ?? 'plugin absent',
+    'Notification.permission  [fallback]': () => (typeof Notification !== 'undefined' ? Notification.permission : 'unsupported'),
+    'navigator.serviceWorker ready  [fallback]': async () =>
         'serviceWorker' in navigator ? !!(await navigator.serviceWorker.getRegistration('/notification-sw.js')) : 'unsupported',
 };
 

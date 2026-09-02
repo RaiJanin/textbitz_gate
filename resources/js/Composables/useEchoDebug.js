@@ -69,7 +69,7 @@ async function pollServerDiagnostics() {
         /* ignore */
     }
     try {
-        const { data } = await window.axios.get(route('api.sync.status'))
+        const { data } = await window.axios.get(route('api.sync.status', undefined, false))
         state.lastSyncAt = data?.report?.at ?? null
     } catch {
         /* ignore */

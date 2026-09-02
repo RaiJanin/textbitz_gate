@@ -1,7 +1,6 @@
 <?php
 
-use App\Services\Data\PullTapsFromServer;
-use App\Services\Remote\ServerConnectivityService;
+use App\Support\Workers;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schedule;
@@ -10,17 +9,15 @@ Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');
 
-Schedule::call(fn () => ServerConnectivityService::checkAndNotify())
-    ->everyMinute()
-    ->name('server-connectivity-heartbeat')
-    ->withoutOverlapping(1);
-
-Schedule::call(fn () => PullTapsFromServer::refreshLinkedStudents())
-    ->everyMinute()
-    ->name('refresh-linked-students')
-    ->withoutOverlapping(1);
-
-Schedule::call(fn () => PullTapsFromServer::refreshGates())
-    ->everyMinute()
-    ->name('refresh-gates')
-    ->withoutOverlapping(1);
+/*
+| The periodic client workers. One definition (App\Support\Workers::tasks()),
+| two runners: the desktop scheduler below, and — on a device, where there is
+| no scheduler — the app-lifecycle plugin's foreground event
+| (App\Support\Lifecycle\RunScheduledWorkers).
+*/
+foreach (Workers::tasks() as $name => $task) {
+    Schedule::call($task)
+        ->everyMinute()
+        ->name($name)
+        ->withoutOverlapping(1);
+}

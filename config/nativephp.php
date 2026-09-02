@@ -219,7 +219,14 @@ return [
         | min_sdk:     The minimum Android version your app supports
         | target_sdk:  The SDK version your app is designed and tested for
         |
+        | NativePHP 3.3.7 ships this comment but omits the keys, so the build
+        | falls back to its hard-coded min_sdk of 26 no matter what .env says.
+        | `fatlum/nativephp-push` needs API 29, so pin it here.
+        |
         */
+        'compile_sdk' => (int) env('NATIVEPHP_ANDROID_COMPILE_SDK', 36),
+        'min_sdk' => (int) env('NATIVEPHP_ANDROID_MIN_SDK', 29),
+        'target_sdk' => (int) env('NATIVEPHP_ANDROID_TARGET_SDK', 36),
 
         /*
         |--------------------------------------------------------------------------

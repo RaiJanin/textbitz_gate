@@ -10,6 +10,7 @@ import '@fortawesome/fontawesome-free/css/all.min.css';
 import { subscribeToLinkedStudents } from './services/useTapChannelManager';
 import { startSyncNotifier } from './Composables/useSyncNotifier';
 import { initLocalNotifications } from './Composables/useLocalNotifications';
+import { startPushNotifications } from './Composables/usePushNotifications';
 import { primePushNotifications } from './Composables/usePushPriming';
 import { startAppLifecycle } from './Composables/useAppLifecycle';
 import { useEchoDebug } from './Composables/useEchoDebug';
@@ -34,11 +35,12 @@ createInertiaApp({
 
         useEchoDebug();           // start capturing Reverb connection state immediately
         useWorkerDebug();         // start polling scheduler / queue status
-        initLocalNotifications();   // register the SW + read notification permission (Firebase-free)
+        initLocalNotifications();   // fallback delivery layer (Web Notifications / native toast)
+        startPushNotifications();   // primary: FCM device-token registration (mobile only)
         subscribeToLinkedStudents();
         startSyncNotifier();
         startAppLifecycle();       // re-sync on foreground / flush on background (mobile lifecycle plugin)
-        primePushNotifications();   // first-run: ask for the OS notification permission (mobile only)
+        primePushNotifications();   // first-run: OS notification permission — FCM enrol, else Web Notifications
 
         // Pick up newly-linked students / a page that first exposes the list.
         router.on('navigate', () => subscribeToLinkedStudents());

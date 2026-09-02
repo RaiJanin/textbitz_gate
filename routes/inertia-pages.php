@@ -2,7 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 
-Route::middleware('auth')->name('app.')->group(function () {
+Route::middleware(['auth', 'push.enroll'])->name('app.')->group(function () {
     Route::action('/home', 'Home')->name('home');
     Route::action('/history', 'History')->name('history');
     Route::action('/alerts', 'Alerts')->name('alerts');

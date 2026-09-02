@@ -2,22 +2,22 @@ import { reactive } from 'vue'
 import { router, usePage } from '@inertiajs/vue3'
 
 /**
- * Firebase-free notifications.
+ * Local-notification FALLBACK layer.
  *
- * There is no push server. Alerts are raised on-device from data the app
- * already receives — realtime Reverb events (useTapChannelManager) and the
- * recurring PullTapsFromServer sync (useSyncNotifier).
+ * FCM (usePushNotifications + the server's SendPushNotification) is the primary
+ * push path and the only one that reaches a killed app. This layer covers the
+ * foreground / app-alive case and the no-FCM case (plugin absent, permission
+ * denied, web) by raising a notification on-device from data the app already
+ * has — realtime Reverb events (useTapChannelManager) and the PullTapsFromServer
+ * sync (useSyncNotifier).
  *
  * Delivery, best available first:
  *   1. Web Notifications API (+ service worker)  — real tray notification.
  *   2. Native fallback: Device.vibrate(), and Dialog.alert() for high-priority
- *      items. Used when the Android WebView doesn't expose `Notification`
- *      (the common case in NativePHP builds today).
+ *      items, when the Android WebView doesn't expose `Notification`.
  *   3. Nothing extra — the caller's own in-app / native toast still fires.
  *
- * `state.mode` reports which tier is active. Background/tray delivery while the
- * app is killed is NOT possible without FCM/APNS or a native local-notification
- * plugin — that's the trade-off for staying Firebase-free.
+ * `state.mode` reports which tier is active.
  */
 
 const state = reactive({

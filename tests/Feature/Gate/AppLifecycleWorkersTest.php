@@ -3,6 +3,7 @@
 use App\Models\NotificationPreference;
 use App\Models\User;
 use App\Services\Data\FlushPendingSyncs;
+use App\Support\Workers;
 use Djurovicigoor\AppLifecycle\Events\AppBackgrounded;
 use Djurovicigoor\AppLifecycle\Events\AppForegrounded;
 use Illuminate\Support\Facades\Cache;
@@ -35,6 +36,7 @@ beforeEach(function () {
         '*/api/health' => Http::response(['alive' => true]),
         '*/api/user' => Http::response(['id' => 1]),
         '*/api/me' => Http::response(['guardian' => ['students' => []]]),
+        '*/api/gates' => Http::response(['gates' => []]),
         '*/api/notification-preferences' => Http::response(['ok' => true]),
         '*' => Http::response([], 200),
     ]);
@@ -50,15 +52,18 @@ it('flushes a pending preference synchronously (no queue worker)', function () {
         ->and($pref->fresh()->sync_status)->toBe(NotificationPreference::SYNC_STATUS_SYNCED);
 });
 
-it('runs the workers when the app is foregrounded', function () {
+it('runs the scheduler task set on the foreground event', function () {
     bridgedUser();
     $pref = pendingGuardianPref();
 
     event(new AppForegrounded(now()->valueOf()));
 
+    // checkAndNotify → ServerConnectionRestored → pending writes flushed
     expect($pref->fresh()->sync_status)->toBe(NotificationPreference::SYNC_STATUS_SYNCED)
         ->and(Cache::get('gate.last_foreground_at'))->not->toBeNull();
-    Http::assertSent(fn ($r) => str_contains($r->url(), '/api/me'));
+
+    Http::assertSent(fn ($r) => str_contains($r->url(), '/api/me'));   // refresh-linked-students
+    Http::assertSent(fn ($r) => str_contains($r->url(), '/api/gates')); // refresh-gates
 });
 
 it('flushes pending writes and records the timestamp when backgrounded', function () {
@@ -69,4 +74,22 @@ it('flushes pending writes and records the timestamp when backgrounded', functio
 
     expect($pref->fresh()->sync_status)->toBe(NotificationPreference::SYNC_STATUS_SYNCED)
         ->and(Cache::get('gate.last_background_at'))->not->toBeNull();
+});
+
+it('exposes one task set that both the scheduler and the foreground listener consume', function () {
+    // routes/console.php loops Workers::tasks() to build the schedule;
+    // RunScheduledWorkers calls Workers::runAll(). Workers is the single source.
+    expect(array_keys(Workers::tasks()))->toEqualCanonicalizing([
+        'server-connectivity-heartbeat',
+        'refresh-linked-students',
+        'refresh-gates',
+    ]);
+
+    Http::fake(['*' => Http::response(['alive' => true, 'gates' => [], 'guardian' => ['students' => []]])]);
+    Cache::put('remote_connectivity', true, 60);
+    bridgedUser();
+
+    Workers::runAll(); // must not throw
+
+    Http::assertSent(fn ($r) => str_contains($r->url(), '/api/gates'));
 });

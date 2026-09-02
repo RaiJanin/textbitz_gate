@@ -63,7 +63,7 @@ function announce({ report, pending_writes }) {
 
 async function poll() {
     try {
-        const { data } = await window.axios.get(route('api.sync.status'))
+        const { data } = await window.axios.get(route('api.sync.status', undefined, false))
         announce(data)
     } catch {
         /* offline / 401 — handled by the bootstrap interceptor, nothing to do */
@@ -87,7 +87,7 @@ export function startSyncNotifier({ intervalMs = 45000 } = {}) {
 /** Manual pull-to-refresh: trigger a pull now and surface the result. */
 export async function pullNow() {
     try {
-        const { data } = await window.axios.post(route('api.sync.pull'))
+        const { data } = await window.axios.post(route('api.sync.pull', undefined, false))
         announce(data)
         return data
     } catch {

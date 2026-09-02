@@ -54,8 +54,12 @@ class DefaultDataSeeder
     }
 
     /**
-     * Runs DemoSeeder exactly once per process, and only when the users table
-     * exists and is empty — so it never reseeds and never clobbers a real login.
+     * Seeds DemoSeeder once, only when the users table exists and is empty — so
+     * it never reseeds and never clobbers a real login.
+     *
+     * The `$demoChecked` latch is only set once the schema is actually ready:
+     * on the very first NativePHP boot this can run before migrations have
+     * finished, and latching then would mean the demo data never appears.
      */
     private static function seedDemoDataIfFresh(): void
     {
@@ -63,14 +67,22 @@ class DefaultDataSeeder
             return;
         }
 
-        self::$demoChecked = true;
-
         try {
-            if (! Schema::hasTable('users') || DB::table('users')->exists()) {
-                return;
+            if (! Schema::hasTable('users')) {
+                self::ensureDatabaseMigrated();
             }
 
-            (new DemoSeeder)->run();
+            if (! Schema::hasTable('users')) {
+                return; // schema not ready yet — retry on a later request
+            }
+
+            self::$demoChecked = true;
+
+            if (DB::table('users')->exists()) {
+                return; // a real (or already-seeded) account exists
+            }
+
+            (new DemoSeeder)->run(connectRemote: false);
 
             Log::info('APP_DEMO_MODE: demo dataset seeded on boot.');
         } catch (\Throwable $e) {

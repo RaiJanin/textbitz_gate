@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AlertsController;
 use App\Http\Controllers\BroadcastAuthProxyController;
+use App\Http\Controllers\DeviceTokenController;
 use App\Http\Controllers\HistoryController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\LinkController;
@@ -28,6 +29,10 @@ Route::middleware('auth')->group(function () {
 
         Route::get('/sync/status', [SyncStatusController::class, 'show'])->name('sync.status');
         Route::post('/sync/pull', [SyncStatusController::class, 'pull'])->name('sync.pull');
+
+        // FCM device token (mobile). JSON so a failure never redirects.
+        Route::post('/device-tokens', [DeviceTokenController::class, 'store'])->name('device-tokens.store');
+        Route::delete('/device-tokens', [DeviceTokenController::class, 'destroy'])->name('device-tokens.destroy');
 
         Route::post('/broadcasting/auth', [BroadcastAuthProxyController::class, 'authorize'])->name('broadcasting.auth');
     });
