@@ -3,6 +3,7 @@
 namespace App\Services\Remote;
 
 use App\Models\User;
+use App\Services\Data\PullTapsFromServer;
 use App\Services\Remote\ServerConnectivityService;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -78,6 +79,8 @@ class RemoteAuthService extends RemoteApiClient
             'remote_synced_at' => now(),
         ]);
 
+        PullTapsFromServer::adoptAccount($user);
+
         return true;
     }
 
@@ -102,6 +105,8 @@ class RemoteAuthService extends RemoteApiClient
             'remote_token' => $response->json('token'),
             'remote_synced_at' => now(),
         ]);
+
+        PullTapsFromServer::adoptAccount($user);
 
         return true;
     }

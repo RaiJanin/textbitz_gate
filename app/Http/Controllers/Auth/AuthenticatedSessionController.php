@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\LoginRequest;
+use App\Services\Data\PullTapsFromServer;
 use App\Services\Remote\RemoteAuthService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -36,6 +37,12 @@ class AuthenticatedSessionController extends Controller
 
         /** @var \App\Models\User $user */
         $user = Auth::user();
+
+        // Drop a previous account's cached students/taps up front so they never
+        // flash on screen — even when we're offline and can't reach the server.
+        if (! PullTapsFromServer::cacheBelongsTo($user)) {
+            PullTapsFromServer::purgeCache();
+        }
 
         RemoteAuthService::authenticateOrDefer($user, $request->string('password')->toString());
 

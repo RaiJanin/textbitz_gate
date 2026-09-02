@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Jobs\ConnectRemoteAccountJob;
 use App\Models\User;
 use App\Rules\PhilippineMobileNumber;
+use App\Services\Data\PullTapsFromServer;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -52,6 +53,10 @@ class RegisteredUserController extends Controller
         event(new Registered($user));
 
         Auth::login($user, remember: true);
+
+        // A brand-new account starts with an empty local cache — clear anything
+        // a previous login (or demo mode) left in the shared SQLite tables.
+        PullTapsFromServer::purgeCache();
 
         ConnectRemoteAccountJob::dispatch($user, $request->password, isNewRegistration: true);
 

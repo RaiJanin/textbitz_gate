@@ -49,13 +49,15 @@ class HandleInertiaRequests extends Middleware
             ],
             'gate' => [
                 // Global list so the realtime channel manager always has the
-                // linked students, regardless of which page is showing.
-                'linkedStudentIds' => fn () => $request->user()
+                // linked students, regardless of which page is showing. Gated on
+                // cache ownership so a previous account's (or demo) students
+                // don't leak between login and the first sync.
+                'linkedStudentIds' => fn () => PullTapsFromServer::cacheBelongsTo($request->user())
                     ? Student::query()->whereNotNull('remote_id')->orderBy('id')->pluck('remote_id')->values()
                     : [],
                 'sync' => fn () => cache(PullTapsFromServer::REPORT_CACHE_KEY),
                 // Guardian toggles so local notifications can be filtered client-side.
-                'notificationPreferences' => fn () => $request->user()
+                'notificationPreferences' => fn () => PullTapsFromServer::cacheBelongsTo($request->user())
                     ? NotificationPreference::where('role', NotificationPreference::ROLE_GUARDIAN)
                         ->first(['arrival', 'departure', 'late_alert', 'weekly_summary'])
                     : null,

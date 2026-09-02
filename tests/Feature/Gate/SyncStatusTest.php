@@ -73,3 +73,44 @@ it('the recurring pull writes a sync report with change counts', function () {
         ->and($report['new_taps'])->toBe(1)
         ->and($report['students'])->toContain('Diana Reyes');
 });
+
+it('drops locally cached students the account is no longer linked to', function () {
+    Cache::put('remote_connectivity', true, 60);
+    Http::fake([
+        '*/api/me' => Http::response(['guardian' => ['students' => []]]), // linked to nobody
+        '*/api/notification-preferences' => Http::response(['preferences' => []]),
+        '*/api/health' => Http::response(['alive' => true]),
+    ]);
+
+    // Stale rows from a previous login / demo seed.
+    \App\Models\Student::create(['remote_id' => 1, 'full_name' => 'Diana Reyes']);
+    \App\Models\Student::create(['remote_id' => 2, 'full_name' => 'Marco Reyes']);
+
+    syncUser();
+    PullTapsFromServer::refreshLinkedStudents();
+
+    expect(\App\Models\Student::count())->toBe(0);
+});
+
+it('wipes the previous account cache when a different account is adopted', function () {
+    Cache::put(PullTapsFromServer::CACHE_OWNER_KEY, 99); // cache belongs to remote user 99
+    \App\Models\Student::create(['remote_id' => 5, 'full_name' => 'Someone Elses Kid']);
+    \App\Models\TapEvent::create([
+        'student_id' => 1, 'direction' => 'in', 'tapped_at' => now(),
+    ]);
+
+    PullTapsFromServer::adoptAccount(syncUser()); // remote_id 1
+
+    expect(\App\Models\Student::count())->toBe(0)
+        ->and(\App\Models\TapEvent::count())->toBe(0)
+        ->and((int) Cache::get(PullTapsFromServer::CACHE_OWNER_KEY))->toBe(1);
+});
+
+it('adopts an unknown-owner cache without wiping it', function () {
+    \App\Models\Student::create(['remote_id' => 1, 'full_name' => 'Diana Reyes']);
+
+    PullTapsFromServer::adoptAccount(syncUser()); // remote_id 1, no owner key set
+
+    expect(\App\Models\Student::count())->toBe(1)
+        ->and((int) Cache::get(PullTapsFromServer::CACHE_OWNER_KEY))->toBe(1);
+});
