@@ -5,6 +5,7 @@ import Sidebar from './Sidebar.vue';
 import Toast from '@/Components/Toast.vue';
 import EchoDebugOverlay from '@/Components/Debug/EchoDebugOverlay.vue';
 import WorkerDebugOverlay from '@/Components/Debug/WorkerDebugOverlay.vue';
+import NotificationOptInModal from '@/Components/Modal/NotificationOptInModal.vue';
 
 defineProps({
     pageTitle: {
@@ -56,6 +57,6 @@ defineProps({
             <FooterNav />
         </div>
 
-        
+        <NotificationOptInModal />
     </main>
 </template>

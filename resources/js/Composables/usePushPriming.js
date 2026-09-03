@@ -2,17 +2,26 @@ import { usePage } from '@inertiajs/vue3'
 import { requestNotificationPermission } from '@/Composables/useLocalNotifications'
 
 /**
- * First-run notification permission (mobile only, runs once — remembered in
- * localStorage).
+ * First-run notification opt-in.
  *
- * Primary: FCM via `fatlum/nativephp-push` — `pushNotifications.enroll()`
- * shows the real OS permission modal and hooks token delivery.
- * Fallback: the Web Notifications permission, used by useLocalNotifications
- * when the plugin isn't present.
+ * The user is shown a Vue explainer modal (NotificationOptInModal) first; only
+ * when they tap "Enable" does `runNotificationOptIn()` fire the *native* prompt:
+ *
+ *   Primary: FCM via `fatlum/nativephp-push` — `pushNotifications.enroll()`
+ *            shows the real OS permission sheet and hooks token delivery.
+ *   Fallback: the Web Notifications permission (drives useLocalNotifications)
+ *            when the plugin isn't in the build.
+ *
+ * The decision is remembered in localStorage so the modal only appears once.
  */
 
-const STORE_KEY = 'gate.notify.prime' // 'granted' | 'denied' | 'unsupported' | 'asked'
-const status = (r) => (typeof r === 'string' ? r : (r?.status ?? null))
+const STORE_KEY = 'gate.notify.optin' // 'granted' | 'denied' | 'dismissed' | 'unsupported'
+const RESOLVED = ['granted', 'denied', 'unsupported']
+
+// Only auto-offer once per app session even while the choice is still pending.
+let offeredThisSession = false
+
+const asStatus = (r) => (typeof r === 'string' ? r : (r?.status ?? r?.token ?? null))
 
 function stored() {
     try {
@@ -30,62 +39,119 @@ function remember(value) {
     }
 }
 
-async function tryFcmEnrol() {
-    let native
+function isMobile() {
+    const p = usePage().props?.platform
+    return !!(p?.isAndroid || p?.isIos)
+}
+
+async function loadPush() {
     try {
-        native = await import('#nativephp')
+        const native = await import('../../../vendor/nativephp/mobile/resources/jump/dist/native')
+        return native?.pushNotifications ?? null
     } catch {
-        return false
-    }
-
-    const push = native.pushNotifications
-    if (!push?.enroll || !push?.checkPermission) {
-        return false // plugin absent
-    }
-
-    try {
-        const current = status(await push.checkPermission())
-        if (current === 'granted' || current === 'denied') {
-            remember(current)
-            return true
-        }
-
-        push.enroll() // native OS permission modal
-        remember('asked')
-
-        setTimeout(async () => {
-            try {
-                const after = status(await push.checkPermission())
-                if (['granted', 'denied'].includes(after)) remember(after)
-            } catch {
-                /* leave as 'asked' */
-            }
-        }, 2000)
-
-        return true
-    } catch {
-        return false
+        return null
     }
 }
 
-export async function primePushNotifications() {
-    const platform = usePage().props?.platform
-    if (!platform?.isAndroid && !platform?.isIos) {
-        return
+/**
+ * Should the explainer modal be shown now? True only on mobile, when we've never
+ * recorded a decision, and the OS itself hasn't been asked yet.
+ */
+export async function shouldOfferNotificationOptIn() {
+    if (!isMobile() || offeredThisSession) {
+        return false
     }
 
-    if (['granted', 'denied', 'unsupported'].includes(stored())) {
-        return
+    const saved = stored()
+    if (saved && (RESOLVED.includes(saved) || saved === 'dismissed')) {
+        return false
     }
 
-    setTimeout(async () => {
-        if (await tryFcmEnrol()) {
-            return
+    // Sync from the platform in case permission was set outside the app.
+    const push = await loadPush()
+    if (push?.checkPermission) {
+        const os = asStatus(await push.checkPermission())
+        if (os === 'granted' || os === 'denied') {
+            remember(os)
+            return false
         }
-        // Fallback: Web Notifications permission (drives useLocalNotifications).
-        const result = await requestNotificationPermission()
-        if (['granted', 'denied', 'unsupported'].includes(result)) {
-            remember(result)
+        offeredThisSession = true
+        return true // 'not_determined' / 'provisional' / etc.
+    }
+
+    // No plugin — fall back to the Web Notifications permission.
+    if (typeof Notification === 'undefined') {
+        remember('unsupported')
+        return false
+    }
+    if (Notification.permission !== 'default') {
+        remember(Notification.permission)
+        return false
+    }
+
+    offeredThisSession = true
+    return true
+}
+
+/**
+ * Fire the native permission prompt (or the Web fallback) and record the result.
+ * Call this from the modal's "Enable" button.
+ *
+ * @returns {Promise<'granted'|'denied'|'asked'|'unsupported'>}
+ */
+export async function runNotificationOptIn() {
+    const push = await loadPush()
+
+    if (push?.enroll && push?.checkPermission) {
+        try {
+            const current = asStatus(await push.checkPermission())
+            if (current === 'granted' || current === 'denied') {
+                remember(current)
+                return current
+            }
+
+            push.enroll() // <-- the real OS permission sheet
+
+            // The sheet resolves asynchronously; re-read shortly after.
+            await new Promise((resolve) => setTimeout(resolve, 1500))
+            const after = asStatus(await push.checkPermission())
+            if (RESOLVED.includes(after)) {
+                remember(after)
+                return after
+            }
+
+            remember('asked')
+            return 'asked'
+        } catch {
+            /* fall through to the web path */
         }
-    }, 1200)
+    }
+
+    const result = await requestNotificationPermission()
+    remember(RESOLVED.includes(result) ? result : 'asked')
+    return result
+}
+
+/** User tapped "Not now" — don't auto-show the modal again (Settings can re-ask). */
+export function dismissNotificationOptIn() {
+    remember('dismissed')
+}
+
+/**
+ * Current opt-in state for UI (e.g. a Settings "Enable notifications" affordance):
+ * 'granted' | 'denied' | 'dismissed' | 'unsupported' | 'unasked'.
+ */
+export async function notificationOptInState() {
+    const push = await loadPush()
+    if (push?.checkPermission) {
+        const os = asStatus(await push.checkPermission())
+        if (os === 'granted' || os === 'denied') return os
+    } else if (typeof Notification !== 'undefined' && Notification.permission !== 'default') {
+        return Notification.permission
+    } else if (typeof Notification === 'undefined' && !isMobile()) {
+        return 'unsupported'
+    }
+
+    const saved = stored()
+    return saved === 'dismissed' ? 'dismissed' : 'unasked'
 }

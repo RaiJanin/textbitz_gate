@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use App\Rules\PhilippineMobileNumber;
+use App\Services\Remote\RemoteAuthService;
 
 class LoginRequest extends FormRequest
 {
@@ -43,15 +44,29 @@ class LoginRequest extends FormRequest
     {
         $this->ensureIsNotRateLimited();
 
-        if (! Auth::attempt($this->only('phone_number', 'password'), $this->boolean('remember'))) {
-            RateLimiter::hit($this->throttleKey());
+        if (Auth::attempt($this->only('phone_number', 'password'), $this->boolean('remember'))) {
+            RateLimiter::clear($this->throttleKey());
 
-            throw ValidationException::withMessages([
-                'phone_number' => trans('auth.failed'),
-            ]);
+            return;
         }
 
-        RateLimiter::clear($this->throttleKey());
+        $user = RemoteAuthService::bootstrapFromServer(
+            $this->string('phone_number')->toString(),
+            $this->string('password')->toString(),
+        );
+
+        if ($user) {
+            Auth::login($user, $this->boolean('remember'));
+            RateLimiter::clear($this->throttleKey());
+
+            return;
+        }
+
+        RateLimiter::hit($this->throttleKey());
+
+        throw ValidationException::withMessages([
+            'phone_number' => trans('auth.failed'),
+        ]);
     }
 
     /**

@@ -24,7 +24,7 @@ export async function startPushNotifications() {
 
     let native
     try {
-        native = await import('#nativephp')
+        native = await import('../../../vendor/nativephp/mobile/resources/jump/dist/native.js')
     } catch {
         return
     }

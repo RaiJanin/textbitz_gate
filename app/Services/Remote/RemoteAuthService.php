@@ -111,6 +111,47 @@ class RemoteAuthService extends RemoteApiClient
         return true;
     }
 
+    /**
+     * First login on a device for an account that only exists on the server
+     * (e.g. a guardian the school created in the admin panel). Verifies the
+     * credentials against `/api/login` and, on success, materialises the local
+     * cache user so future logins work offline.
+     */
+    public static function bootstrapFromServer(string $phoneNumber, string $password): ?User
+    {
+        if (! ServerConnectivityService::isOnline()) {
+            return null;
+        }
+
+        $response = Http::post(self::url('/api/login'), [
+            'phone_number' => $phoneNumber,
+            'password' => $password,
+            'device_name' => php_uname('n'),
+        ]);
+
+        if (! $response->successful()) {
+            return null;
+        }
+
+        $remote = $response->json('user');
+
+        $user = User::updateOrCreate(
+            ['phone_number' => $phoneNumber],
+            [
+                'name' => $remote['name'] ?? $phoneNumber,
+                'email' => $remote['email'] ?? null,
+                'password' => bcrypt($password),
+                'remote_id' => $remote['id'] ?? null,
+                'remote_token' => $response->json('token'),
+                'remote_synced_at' => now(),
+            ],
+        );
+
+        PullTapsFromServer::adoptAccount($user);
+
+        return $user;
+    }
+
     public static function verify(User $user): bool
     {
         if (!$user->remote_token) {
