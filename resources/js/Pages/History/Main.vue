@@ -56,7 +56,7 @@ function changeMonth(value) {
                 <EmptyStudents v-if="!students.length" />
 
                 <template v-else>
-                    <MonthCalendar :days="days" />
+                    <MonthCalendar :days="days" :loading="loading"/>
                     <DailyRecords :days="days" :loading="loading" />
                 </template>
             </div>

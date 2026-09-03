@@ -2,7 +2,7 @@
 import { watch } from 'vue';
 import { useInfiniteScroll } from '@/Composables/useInfiniteScroll';
 import { fetchStudentAlerts } from '@/data/api/fetchViaAxios';
-import ExtraSmallSpinner from '@/Components/Spinners/ExtraSmallSpinner.vue';
+import DetailsCardColList from '@/Components/Skeleton/DetailsCardColList.vue';
 import EmptyAlerts from '@/Components/Placeholders/EmptyAlerts.vue';
 import AlertCard from './AlertCard.vue';
 
@@ -38,7 +38,7 @@ watch(
         </ul>
 
         <div v-if="loading" class="py-4 flex justify-center">
-            <ExtraSmallSpinner />
+            <DetailsCardColList />
         </div>
 
         <p v-else-if="error" class="py-3 text-center text-sm text-rose-500">

@@ -1,5 +1,6 @@
 <script setup>
 import EmptyActivity from '@/Components/Placeholders/EmptyActivity.vue';
+import SmallRowList from '@/Components/Skeleton/SmallRowList.vue';
 
 defineProps({
     timeline: {
@@ -17,7 +18,9 @@ defineProps({
     <section class="rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-6">
         <h2 class="font-semibold text-gray-900 dark:text-gray-100 mb-3">Today's timeline</h2>
 
-        <p v-if="loading" class="text-sm text-gray-400">Loading…</p>
+        <div v-if="loading" class="flex justify-center">
+            <SmallRowList />
+        </div>
 
         <ul v-else-if="timeline.length" class="space-y-2">
             <li

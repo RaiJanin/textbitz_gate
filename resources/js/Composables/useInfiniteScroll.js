@@ -55,10 +55,9 @@ export function useInfiniteScroll(loadPage, { immediate = true } = {}) {
         page.value = 0
         done.value = false
         error.value = null
-
-        if (immediate) {
-            loadMore()
-        }
+    
+        loadMore()
+        
     }
 
     watch(isVisible, (visible) => {

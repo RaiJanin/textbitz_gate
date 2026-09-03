@@ -176,10 +176,18 @@ class RemoteAuthService extends RemoteApiClient
     {
         if ($user->remote_token)
         {
+            // Unregister this device's push token FIRST (while the token is still
+            // valid) so a signed-out phone stops receiving this account's pushes.
+            if ($user->fcm_token) {
+                self::delete($user, '/api/device-tokens', ['token' => $user->fcm_token]);
+            }
+
             Http::withToken($user->remote_token)->post(self::url('/api/logout'));
 
             static::invalidateSession($user);
         }
+
+        $user->update(['fcm_token' => null]);
     }
 
     public static function invalidateSession(User $user): void

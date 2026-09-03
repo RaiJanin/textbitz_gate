@@ -4,7 +4,7 @@ import { ArrowDownLeft, ArrowUpRight } from 'lucide-vue-next';
 import { fetchStudentHistory } from '@/data/api/fetchViaAxios';
 import { friendlyDate } from '@/helpers/date';
 import EmptyActivity from '@/Components/Placeholders/EmptyActivity.vue';
-import SmallCardColList from '@/Components/Skeleton/SmallCardColList.vue';
+import SmallDetailsList from '@/Components/Skeleton/SmallDetailsList.vue';
 
 const props = defineProps({
     remoteId: {
@@ -53,7 +53,7 @@ watch(() => [props.remoteId, props.refreshKey], () => load().catch(() => {}), { 
         <h2 class="font-semibold text-gray-900 dark:text-gray-100 mb-3">Recent activity</h2>
 
         <div v-if="loading" class="space-y-2">
-            <SmallCardColList v-for="n in 3" :key="n" />
+            <SmallDetailsList />
         </div>
 
         <EmptyActivity v-else-if="!events.length" />

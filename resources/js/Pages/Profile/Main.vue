@@ -49,7 +49,7 @@ defineProps({
                     <UpdatePasswordForm class="max-w-xl" />
                 </div>
 
-                <div
+                <div hidden
                     class="p-4 sm:rounded-lg sm:p-8"
                 >
                     <DeleteUserForm class="max-w-xl" />

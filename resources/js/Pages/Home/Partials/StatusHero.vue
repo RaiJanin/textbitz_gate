@@ -26,6 +26,7 @@ const presenceLabel = computed(() => ({
             {{ presenceLabel }}
         </p>
         <p v-if="status?.is_late" class="mt-1 text-amber-600 text-sm font-medium">Late arrival</p>
+        <div v-else-if="!status" class="animate-pulse-fast [animation-delay:50ms] p-2 rounded-lg w-[25%] bg-gray-300 dark:bg-gray-500"></div>
 
         <div class="mt-4 flex gap-6 text-sm text-gray-600 dark:text-gray-300">
             <div>

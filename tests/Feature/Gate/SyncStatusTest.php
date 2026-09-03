@@ -114,3 +114,38 @@ it('adopts an unknown-owner cache without wiping it', function () {
     expect(\App\Models\Student::count())->toBe(1)
         ->and((int) Cache::get(PullTapsFromServer::CACHE_OWNER_KEY))->toBe(1);
 });
+
+it('pulls the switched-to account\'s students into the cache on login', function () {
+    Cache::put('remote_connectivity', true, 60);
+    Cache::put(PullTapsFromServer::CACHE_OWNER_KEY, 99); // cache belongs to a previous account (user 99)
+    \App\Models\Student::create(['remote_id' => 500, 'full_name' => 'Old Account Kid']);
+
+    Http::fake([
+        '*/api/me' => Http::response([
+            'guardian' => ['students' => [[
+                'id' => 7, 'full_name' => 'Bea Cruz', 'grade' => '9',
+                'school' => ['id' => 1, 'name' => 'Sampaguita', 'timezone' => 'Asia/Manila'],
+            ]]],
+        ]),
+        '*/api/notification-preferences' => Http::response(['preferences' => []]),
+        '*/api/students/7/status' => Http::response(['date' => now('Asia/Manila')->toDateString(), 'timeline' => []]),
+        '*/api/health' => Http::response(['alive' => true]),
+        '*/api/login' => Http::response(['user' => ['id' => 2], 'token' => 'tok-2']),
+        '*' => Http::response([], 200),
+    ]);
+
+    // User 2 (remote_id 2) logs in on a device whose cache still holds user 99's data.
+    User::factory()->create([
+        'phone_number' => '+639170000222',
+        'password' => \Illuminate\Support\Facades\Hash::make('secret123'),
+        'remote_id' => 2,
+        'remote_token' => 'tok-2',
+    ]);
+
+    $this->post('/login', ['phone_number' => '+639170000222', 'password' => 'secret123'])
+        ->assertRedirect(route('app.dashboard', absolute: false));
+
+    expect(\App\Models\Student::where('remote_id', 500)->exists())->toBeFalse() // old account's kid gone
+        ->and(\App\Models\Student::where('remote_id', 7)->value('full_name'))->toBe('Bea Cruz') // new account's kid present
+        ->and((int) Cache::get(PullTapsFromServer::CACHE_OWNER_KEY))->toBe(2);
+});

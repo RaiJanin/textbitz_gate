@@ -22,8 +22,8 @@ const isCurrentScreen = computed(() => route().current(props.routeName))
 
 <template>
     <Link :href="pageLink"
-        class="flex items-center justify-center rounded-lg pt-4 px-2 pb-6" 
-        :class="[isCurrentScreen ? 'text-blue-600 dark:text-blue-500' : 'text-gray-500 dark:text-gray-300']"
+        class="flex items-center justify-center rounded-xl py-2 px-4" 
+        :class="[isCurrentScreen ? 'text-blue-600 dark:text-blue-500 bg-blue-200/50' : 'text-gray-500 dark:text-gray-300']"
     >
         <i class="text-2xl" :class="iconClass">
             <slot></slot>

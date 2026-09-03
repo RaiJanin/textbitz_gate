@@ -1,6 +1,7 @@
 <script setup>
 import { computed } from 'vue';
 import EmptyHistory from '@/Components/Placeholders/EmptyHistory.vue';
+import SmallRowList from '@/Components/Skeleton/SmallRowList.vue';
 
 const props = defineProps({
     days: {
@@ -20,7 +21,9 @@ const records = computed(() => props.days.filter((day) => day.taps?.length || da
     <section class="rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-4">
         <h2 class="font-semibold mb-3 text-gray-900 dark:text-gray-100">Daily records</h2>
 
-        <p v-if="loading" class="text-sm text-gray-400">Loading…</p>
+        <div v-if="loading" class="flex justify-center">
+            <SmallRowList />
+        </div>
 
         <EmptyHistory v-else-if="!records.length" />
 

@@ -27,7 +27,7 @@ class AlertsController extends Controller
         );
 
         if ($response['result'] === RemoteApiClient::RESULT_SUCCESS) {
-            return response()->json($response['data']);
+            return response()->json($response['alerts'] ?? $response['data']);
         }
 
         return response()->json(['alerts' => [], 'has_more' => false, 'stale' => true]);

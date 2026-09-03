@@ -46,6 +46,10 @@ class AuthenticatedSessionController extends Controller
 
         RemoteAuthService::authenticateOrDefer($user, $request->string('password')->toString());
 
+        // Pull this account's students/taps now so the first screen isn't empty
+        // after an account switch (no-op offline; the heartbeat retries).
+        rescue(fn () => PullTapsFromServer::pullNow(), report: false);
+
         return redirect()->intended(route('app.dashboard', absolute: false));
     }
 
