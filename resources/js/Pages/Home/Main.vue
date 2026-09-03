@@ -52,7 +52,7 @@ watch(liveTick, (at) => {
     <AppLayout page-title="TextBitz Gate" additional-text="Attendance at a glance">
         <template #content>
             <div class="flex flex-col gap-4 min-h-[80dvh]">
-                <Banner :student-count="students.length" />
+                <Banner :student-count="students.length" :status="status"/>
 
                 <ChildSwitcher
                     v-if="students.length > 1"
