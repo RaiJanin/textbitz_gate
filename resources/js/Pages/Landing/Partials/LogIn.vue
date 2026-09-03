@@ -101,6 +101,7 @@ const submit = () => {
             </LargeSubmitButton>
 
             <AuthSwitchPrompt 
+                hidden
                 question="New to TextBitz?"
                 action-text="Create an account"
                 @switch-screen="emit('switchScreen')"
