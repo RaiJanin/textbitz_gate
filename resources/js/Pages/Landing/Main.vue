@@ -36,16 +36,16 @@ const switchScreen = () => {
     <div class="w-full flex bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-gray-300 overflow-hidden min-h-screen">
         <Signature />
         <div class="flex-1 flex items-center justify-center px-6 overflow-hidden">
-            <!-- <img
+            <img
                 id="background"
                 class="fixed -left-80 -top-60 max-w-[600px]"
                 src="/images/background/background-blue.svg"
-            /> -->
-            <!-- <img
+            />
+            <img
                 id="background"
                 class="fixed -right-80 -bottom-60 max-w-[600px]"
                 src="/images/background/background-blue.svg"
-            /> -->
+            />
             <Sessioned v-if="$page.props.auth.user"/>
             <Transition v-else :name="transitionName" mode="out-in" class="z-10">
                 <LogIn 
