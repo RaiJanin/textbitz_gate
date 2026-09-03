@@ -9,6 +9,10 @@ const props = defineProps({
         type: Number,
         default: 0,
     },
+    status: {
+        type: Object,
+        default: null,
+    },
 });
 
 const page = usePage();
@@ -58,7 +62,7 @@ const helper = computed(() =>
         <h1 class="font-bold text-white text-3xl">{{ greeting }}, {{ firstName }}</h1>
         <div class="flex justify-between mt-2">
             <div class="flex flex-col gap-4">
-                <small v-if="isOnline" class="flex-1 max-w-full text-white rounded-full bg-white/20 flex flex-row gap-2 items-center py-1 px-2">
+                <small v-if="!status?.stale" class="flex-1 max-w-full text-white rounded-full bg-white/20 flex flex-row gap-2 items-center py-1 px-2">
                     <Zap :size="16"/>
                     Live updates
                 </small>

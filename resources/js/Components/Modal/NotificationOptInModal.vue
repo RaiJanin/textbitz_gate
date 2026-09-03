@@ -23,7 +23,8 @@ onMounted(async () => {
 async function enable() {
     working.value = true
     try {
-        await runNotificationOptIn() // <-- the native push priming happens here
+        // Full chain: native prompt → open app settings → manual-steps dialog.
+        await runNotificationOptIn()
     } finally {
         working.value = false
         open.value = false

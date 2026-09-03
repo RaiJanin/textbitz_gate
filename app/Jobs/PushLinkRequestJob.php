@@ -44,9 +44,13 @@ class PushLinkRequestJob implements ShouldQueue
             return;
         }
 
-        $user = User::whereNotNull('remote_token')->first();
+        // Authenticate as the account that actually submitted the code, so the
+        // server records the right guardian as its consumer. Fall back to the
+        // single connected account only for rows created before this was tracked.
+        $user = $this->linkRequest->user
+            ?? User::whereNotNull('remote_token')->first();
 
-        if (! $user) {
+        if (! $user || ! $user->remote_token) {
             $this->release($this->backoff[$this->attempts() - 1] ?? end($this->backoff));
 
             return;

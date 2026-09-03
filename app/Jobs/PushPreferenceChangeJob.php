@@ -4,6 +4,7 @@ namespace App\Jobs;
 
 use App\Models\NotificationPreference;
 use App\Models\User;
+use App\Services\Data\PullTapsFromServer;
 use App\Services\Remote\RemoteApiClient;
 use App\Services\Remote\ServerConnectivityService;
 use Illuminate\Bus\Queueable;
@@ -43,9 +44,10 @@ class PushPreferenceChangeJob implements ShouldQueue
             return;
         }
 
-        $user = User::whereNotNull('remote_token')->first();
+        $user = PullTapsFromServer::activeUser()
+            ?? User::whereNotNull('remote_token')->first();
 
-        if (! $user) {
+        if (! $user || ! $user->remote_token) {
             $this->release($this->backoff[$this->attempts() - 1] ?? end($this->backoff));
 
             return;

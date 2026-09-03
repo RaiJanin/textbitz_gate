@@ -36,3 +36,4 @@ Thumbs.db
 /credentials/
 *.jks
 google-services.json
+/resources/google-services.json

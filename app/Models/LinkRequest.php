@@ -4,8 +4,9 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-#[Fillable(['code', 'relationship', 'sync_status', 'last_error', 'synced_at'])]
+#[Fillable(['user_id', 'code', 'relationship', 'sync_status', 'last_error', 'synced_at'])]
 class LinkRequest extends Model
 {
     const SYNC_STATUS_PENDING = 'pending';
@@ -17,5 +18,11 @@ class LinkRequest extends Model
         return [
             'synced_at' => 'datetime',
         ];
+    }
+
+    /** The local account that submitted this link request. */
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
     }
 }

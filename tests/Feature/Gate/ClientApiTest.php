@@ -74,15 +74,48 @@ it('updates a preference locally and marks it pending when offline', function ()
         ->and($pref->sync_status)->toBe(NotificationPreference::SYNC_STATUS_PENDING);
 });
 
-it('queues a link request', function () {
+it('queues a link request tagged with the submitting account', function () {
     Http::fake(['*' => Http::response('', 500)]);
 
-    $this->actingAs(gateUser())
+    $user = gateUser();
+
+    $this->actingAs($user)
         ->from('/settings')
         ->post('/settings/link-request', ['code' => 'gate-sofia'])
         ->assertRedirect('/settings');
 
-    expect(LinkRequest::where('code', 'GATE-SOFIA')->where('sync_status', 'pending')->exists())->toBeTrue();
+    $linkRequest = LinkRequest::where('code', 'GATE-SOFIA')->first();
+
+    expect($linkRequest->sync_status)->toBe('pending')
+        ->and($linkRequest->user_id)->toBe($user->id); // so the push authenticates as this account
+});
+
+it('pushes the link request as the account that submitted it — not an arbitrary user', function () {
+    \Illuminate\Support\Facades\Cache::put('remote_connectivity', true, 60);
+    Http::fake([
+        '*/api/health' => Http::response(['alive' => true]),
+        '*/api/link/request' => Http::response(['linked' => true], 201),
+        '*/api/me' => Http::response(['guardian' => ['students' => []]]),
+        '*' => Http::response([], 200),
+    ]);
+
+    // A stale first-in-line account (would have been picked by the old code)…
+    User::factory()->create(['remote_id' => 1, 'remote_token' => 'stale-tok', 'remote_synced_at' => now()->subDay()]);
+    // …and the account that actually submits the code.
+    $submitter = User::factory()->create(['remote_id' => 99, 'remote_token' => 'submitter-tok', 'remote_synced_at' => now()]);
+
+    $linkRequest = LinkRequest::create([
+        'user_id' => $submitter->id,
+        'code' => 'GATE-XYZ',
+        'sync_status' => 'pending',
+    ]);
+
+    (new \App\Jobs\PushLinkRequestJob($linkRequest))->handle();
+
+    Http::assertSent(fn ($r) => str_contains($r->url(), '/api/link/request')
+        && $r->hasHeader('Authorization', 'Bearer submitter-tok'));
+
+    expect($linkRequest->fresh()->sync_status)->toBe('synced');
 });
 
 it('flushes pending preference changes on server reconnect', function () {

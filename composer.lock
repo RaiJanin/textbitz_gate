@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "c39991182ef0834b6dbbd21ed56db35a",
+    "content-hash": "da47b7f02067df383fd4d98e400ab976",
     "packages": [
         {
             "name": "bacon/bacon-qr-code",
@@ -3142,6 +3142,56 @@
                 "source": "https://github.com/NativePHP/mobile-dialog/tree/1.0.2"
             },
             "time": "2026-07-15T18:46:26+00:00"
+        },
+        {
+            "name": "nativephp/mobile-system",
+            "version": "1.0.3",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/NativePHP/mobile-system.git",
+                "reference": "6ee2eca38595208451339f8a2963ab7dee72592f"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/NativePHP/mobile-system/zipball/6ee2eca38595208451339f8a2963ab7dee72592f",
+                "reference": "6ee2eca38595208451339f8a2963ab7dee72592f",
+                "shasum": ""
+            },
+            "require": {
+                "nativephp/mobile": "^3.0 || ^4.0",
+                "nativephp/mobile-device": "*",
+                "php": "^8.2"
+            },
+            "require-dev": {
+                "orchestra/testbench": "^10.0",
+                "pestphp/pest": "^2.7|^3.0|^4.0"
+            },
+            "type": "nativephp-plugin",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "Native\\Mobile\\Providers\\SystemServiceProvider"
+                    ]
+                },
+                "nativephp": {
+                    "manifest": "nativephp.json"
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Native\\Mobile\\Providers\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "description": "System-level operations for NativePHP Mobile",
+            "support": {
+                "issues": "https://github.com/NativePHP/mobile-system/issues",
+                "source": "https://github.com/NativePHP/mobile-system/tree/1.0.3"
+            },
+            "time": "2026-07-15T18:46:27+00:00"
         },
         {
             "name": "nesbot/carbon",

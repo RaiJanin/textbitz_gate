@@ -74,6 +74,12 @@ const sideEffectTests = {
     'dialog.alert(…, buttons)': () =>
         need().dialog.alert('Native sandbox', 'Tap a button — the choice shows in the event log.', ['Got it', 'Cancel'], 'sandbox-alert'),
     'device.vibrate()': () => need().device.vibrate(),
+    "bridgeCall('System.OpenAppSettings')  [denied-perm fallback]": () =>
+        need().bridgeCall('System.OpenAppSettings', {}),
+    'openAppNotificationSettings()  [full fallback chain]': async () => {
+        const { openAppNotificationSettings } = await import('@/Composables/usePushPriming');
+        return openAppNotificationSettings();
+    },
     'Notification.requestPermission()  ⚠ OS prompt': async () => {
         if (typeof Notification === 'undefined') return 'unsupported';
         return Notification.requestPermission();

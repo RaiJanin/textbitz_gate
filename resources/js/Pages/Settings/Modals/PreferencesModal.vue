@@ -5,7 +5,7 @@ import { BellRing } from 'lucide-vue-next';
 import BottomModal from '@/Components/Modal/BottomModal.vue';
 import SlidingSwitch from '@/Components/Button/SlidingSwitch.vue';
 import { darkMode } from '@/Composables/useDarkMode';
-import { notificationOptInState, runNotificationOptIn } from '@/Composables/usePushPriming';
+import { notificationOptInState, runNotificationOptIn, openAppNotificationSettings } from '@/Composables/usePushPriming';
 import settings from '@/data/settings';
 import crossPlatformToast from '@/helpers/crossPlatformToast';
 
@@ -40,11 +40,19 @@ watch(() => props.modelValue, (visible) => {
 async function enableDeviceNotify() {
     enabling.value = true;
     try {
-        const result = await runNotificationOptIn();
+        // Full chain: native prompt → open app settings → manual-steps dialog.
+        await runNotificationOptIn();
         await refreshDeviceNotify();
-        if (result !== 'granted') {
-            toast.show('If nothing appeared, enable notifications for TextBitz Gate in your phone settings.');
-        }
+    } finally {
+        enabling.value = false;
+    }
+}
+
+async function openSettings() {
+    enabling.value = true;
+    try {
+        await openAppNotificationSettings();
+        await refreshDeviceNotify();
     } finally {
         enabling.value = false;
     }
@@ -105,17 +113,18 @@ function setNotification(role, key, value) {
                     </p>
                     <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
                         {{ deviceNotify === 'denied'
-                            ? 'Enable them for TextBitz Gate in your phone settings to get alerts.'
+                            ? 'Your phone blocked them for TextBitz Gate — open Settings to switch them back on.'
                             : 'Turn them on to be alerted when your child taps in or out.' }}
                     </p>
                     <button
-                        v-if="deviceNotify !== 'denied'"
                         type="button"
                         :disabled="enabling"
                         class="mt-2 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-60"
-                        @click="enableDeviceNotify"
+                        @click="deviceNotify === 'denied' ? openSettings() : enableDeviceNotify()"
                     >
-                        {{ enabling ? 'Opening…' : 'Enable notifications' }}
+                        {{ enabling
+                            ? 'Opening…'
+                            : (deviceNotify === 'denied' ? 'Open settings' : 'Enable notifications') }}
                     </button>
                 </div>
             </section>

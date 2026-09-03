@@ -22,6 +22,7 @@ class LinkController extends Controller
         ]);
 
         $linkRequest = LinkRequest::create([
+            'user_id' => $request->user()->id,
             'code' => strtoupper(trim($validated['code'])),
             'relationship' => $validated['relationship'] ?? null,
             'sync_status' => LinkRequest::SYNC_STATUS_PENDING,
