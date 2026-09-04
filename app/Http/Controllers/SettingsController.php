@@ -21,6 +21,8 @@ class SettingsController extends Controller
             'linkedStudents' => Student::query()
                 ->orderBy('full_name')
                 ->get(['id', 'remote_id', 'full_name', 'relationship', 'grade', 'section']),
+            'defaultRelationship' => $request->user()->active_role ?: 'Guardian',
+            'relationshipOptions' => \App\Support\Relationship::VALUES,
             'preferences' => NotificationPreference::all(['role', 'arrival', 'departure', 'late_alert', 'weekly_summary', 'sync_status']),
             'school' => $student ? [
                 'name' => $student->school_name,

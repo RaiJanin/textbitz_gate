@@ -29,7 +29,7 @@ const iconColor = {
         />
         <div>
             <p class="font-medium text-gray-900 dark:text-gray-100">{{ alert.title }}</p>
-            <p class="text-sm text-gray-500">{{ alert.body }}</p>
+            <p class="text-sm text-gray-500 dark:text-gray-300">{{ alert.body }}</p>
             <p class="text-xs text-gray-400 mt-1">{{ alert.date }}</p>
         </div>
     </li>

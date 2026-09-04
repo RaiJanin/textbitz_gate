@@ -4,8 +4,10 @@ namespace App\Services\Data;
 
 use App\Jobs\PushLinkRequestJob;
 use App\Jobs\PushPreferenceChangeJob;
+use App\Jobs\PushRelationshipChangeJob;
 use App\Models\LinkRequest;
 use App\Models\NotificationPreference;
+use App\Models\Student;
 use App\Services\Remote\ServerConnectivityService;
 use Illuminate\Support\Facades\Log;
 
@@ -50,6 +52,15 @@ class FlushPendingSyncs
                 $flushed++;
             } catch (\Throwable $e) {
                 Log::warning('FlushPendingSyncs: link request push failed', ['error' => $e->getMessage()]);
+            }
+        });
+
+        Student::where('relationship_pending', true)->get()->each(function (Student $student) use (&$flushed) {
+            try {
+                PushRelationshipChangeJob::dispatchSync($student);
+                $flushed++;
+            } catch (\Throwable $e) {
+                Log::warning('FlushPendingSyncs: relationship push failed', ['error' => $e->getMessage()]);
             }
         });
 

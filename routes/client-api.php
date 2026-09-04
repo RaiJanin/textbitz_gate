@@ -43,5 +43,6 @@ Route::middleware('auth')->group(function () {
     Route::name('app.')->group(function () {
         Route::put('/settings/notification-preferences', [PreferenceController::class, 'update'])->name('preferences.update');
         Route::post('/settings/link-request', [LinkController::class, 'store'])->name('link.request');
+        Route::put('/settings/students/{remoteId}/relationship', [LinkController::class, 'updateRelationship'])->name('students.relationship');
     });
 });

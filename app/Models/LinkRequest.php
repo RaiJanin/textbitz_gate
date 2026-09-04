@@ -13,6 +13,8 @@ class LinkRequest extends Model
     const SYNC_STATUS_SYNCED = 'synced';
     const SYNC_STATUS_FAILED = 'failed';
 
+    const DEFAULT_RELATIONSHIP = "Guardian";
+
     protected function casts(): array
     {
         return [

@@ -29,8 +29,8 @@ const records = computed(() => props.days.filter((day) => day.taps?.length || da
 
         <ul v-else class="divide-y divide-gray-100 dark:divide-gray-700">
             <li v-for="day in records" :key="day.date" class="py-2 flex justify-between text-sm">
-                <span>{{ day.date }}</span>
-                <span class="text-gray-500">
+                <span class="text-gray-800 dark:text-gray-200">{{ day.date }}</span>
+                <span class="text-gray-500 dark:text-gray-300">
                     <template v-if="day.state === 'absent'">Absent</template>
                     <template v-else>IN {{ day.first_in ?? '—' }} · OUT {{ day.last_out ?? '—' }}</template>
                 </span>

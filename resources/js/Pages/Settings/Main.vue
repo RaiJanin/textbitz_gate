@@ -15,6 +15,8 @@ import PreferencesModal from './Modals/PreferencesModal.vue';
 
 defineProps({
     linkedStudents: { type: Array, default: () => [] },
+    defaultRelationship: { type: String, default: 'Guardian' },
+    relationshipOptions: { type: Array, default: () => ['Parent', 'Guardian'] },
     preferences: { type: Array, default: () => [] },
     school: { type: Object, default: null },
 });
@@ -34,7 +36,12 @@ function reloadLinked() {
             <div class="flex flex-col gap-5 w-full">
                 <PersonalInfo />
                 <Security />
-                <LinkedChildren :students="linkedStudents" @linked="reloadLinked" />
+                <LinkedChildren
+                    :students="linkedStudents"
+                    :default-relationship="defaultRelationship"
+                    :relationship-options="relationshipOptions"
+                    @linked="reloadLinked"
+                />
                 <Preferences :preferences="preferences" @open="showPreferencesModal = true" />
 
                 <SchoolContact v-if="school" :school="school" />

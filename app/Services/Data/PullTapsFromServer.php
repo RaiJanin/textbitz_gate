@@ -189,6 +189,13 @@ class PullTapsFromServer
 
         self::syncPreferences($me['data']['guardian'] ?? null, $me['data']['student'] ?? null, $user);
 
+        // Adopt the guardian's default relationship from the server, unless a
+        // link request that would set it is still waiting to sync.
+        $role = $me['data']['guardian']['role'] ?? null;
+        if ($role && ! LinkRequest::where('sync_status', LinkRequest::SYNC_STATUS_PENDING)->exists()) {
+            $user->update(['active_role' => \App\Support\Relationship::normalize($role)]);
+        }
+
         $students = collect($me['data']['guardian']['students'] ?? []);
 
         if ($studentSelf = ($me['data']['student']['student'] ?? null)) {
@@ -268,23 +275,31 @@ class PullTapsFromServer
 
     private static function upsertStudent(array $remote): Student
     {
-        return Student::updateOrCreate(
-            ['remote_id' => $remote['id']],
-            [
-                'full_name' => $remote['full_name'],
-                'grade' => $remote['grade'] ?? null,
-                'section' => $remote['section'] ?? null,
-                'avatar_path' => $remote['avatar_path'] ?? null,
-                'relationship' => $remote['relationship'] ?? null,
-                'school_remote_id' => $remote['school']['id'] ?? null,
-                'school_name' => $remote['school']['name'] ?? null,
-                'school_timezone' => $remote['school']['timezone'] ?? 'Asia/Manila',
-                'school_cutoff_time' => $remote['school']['attendance_cutoff_time'] ?? null,
-                'school_contact_phone' => $remote['school']['contact_phone'] ?? null,
-                'school_contact_email' => $remote['school']['contact_email'] ?? null,
-                'synced_at' => now(),
-            ],
-        );
+        $student = Student::firstOrNew(['remote_id' => $remote['id']]);
+
+        $student->fill([
+            'full_name' => $remote['full_name'],
+            'grade' => $remote['grade'] ?? null,
+            'section' => $remote['section'] ?? null,
+            'avatar_path' => $remote['avatar_path'] ?? null,
+            'school_remote_id' => $remote['school']['id'] ?? null,
+            'school_name' => $remote['school']['name'] ?? null,
+            'school_timezone' => $remote['school']['timezone'] ?? 'Asia/Manila',
+            'school_cutoff_time' => $remote['school']['attendance_cutoff_time'] ?? null,
+            'school_contact_phone' => $remote['school']['contact_phone'] ?? null,
+            'school_contact_email' => $remote['school']['contact_email'] ?? null,
+            'synced_at' => now(),
+        ]);
+
+        // Don't clobber a per-student relationship change the user made offline
+        // that hasn't reached the server yet.
+        if (! $student->relationship_pending) {
+            $student->relationship = $remote['relationship'] ?? null;
+        }
+
+        $student->save();
+
+        return $student;
     }
 
     /**

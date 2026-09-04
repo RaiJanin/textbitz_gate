@@ -74,10 +74,10 @@ it('updates a preference locally and marks it pending when offline', function ()
         ->and($pref->sync_status)->toBe(NotificationPreference::SYNC_STATUS_PENDING);
 });
 
-it('queues a link request tagged with the submitting account', function () {
+it('queues a link request tagged with the submitting account and a defaulted relationship', function () {
     Http::fake(['*' => Http::response('', 500)]);
 
-    $user = gateUser();
+    $user = gateUser(); // active_role backfilled to 'Guardian'
 
     $this->actingAs($user)
         ->from('/settings')
@@ -87,7 +87,75 @@ it('queues a link request tagged with the submitting account', function () {
     $linkRequest = LinkRequest::where('code', 'GATE-SOFIA')->first();
 
     expect($linkRequest->sync_status)->toBe('pending')
-        ->and($linkRequest->user_id)->toBe($user->id); // so the push authenticates as this account
+        ->and($linkRequest->user_id)->toBe($user->id)
+        ->and($linkRequest->relationship)->toBe('Guardian'); // always sent
+});
+
+it('link request carries the chosen relationship and updates the guardian default', function () {
+    Http::fake(['*' => Http::response('', 500)]);
+    $user = gateUser();
+
+    $this->actingAs($user)
+        ->from('/settings')
+        ->post('/settings/link-request', ['code' => 'gate-abc', 'relationship' => 'Parent'])
+        ->assertRedirect('/settings');
+
+    expect(LinkRequest::where('code', 'GATE-ABC')->value('relationship'))->toBe('Parent')
+        ->and($user->fresh()->active_role)->toBe('Parent');
+});
+
+it('rejects a relationship outside the enum', function () {
+    $this->actingAs(gateUser())
+        ->from('/settings')
+        ->post('/settings/link-request', ['code' => 'x', 'relationship' => 'Cousin'])
+        ->assertSessionHasErrors('relationship');
+});
+
+it('changes a per-student relationship — locally now, pushed to the server', function () {
+    \Illuminate\Support\Facades\Cache::put('remote_connectivity', true, 60);
+    Http::fake([
+        '*/api/health' => Http::response(['alive' => true]),
+        '*/api/students/7/relationship' => Http::response(['updated' => true]),
+        '*' => Http::response([], 200),
+    ]);
+
+    $user = gateUser();
+    Student::create(['remote_id' => 7, 'full_name' => 'Bea Cruz', 'relationship' => 'Guardian']);
+
+    $this->actingAs($user)
+        ->from('/settings')
+        ->put('/settings/students/7/relationship', ['relationship' => 'Parent'])
+        ->assertRedirect('/settings');
+
+    $student = Student::where('remote_id', 7)->first();
+
+    expect($student->relationship)->toBe('Parent')
+        ->and($student->relationship_pending)->toBeFalse(); // server accepted → flag cleared
+
+    Http::assertSent(fn ($r) => $r->method() === 'PUT' && str_contains($r->url(), '/api/students/7/relationship'));
+});
+
+it('keeps a pending relationship change through an /api/me sync', function () {
+    \Illuminate\Support\Facades\Cache::put('remote_connectivity', true, 60);
+    Http::fake([
+        '*/api/health' => Http::response(['alive' => true]),
+        '*/api/me' => Http::response(['guardian' => ['students' => [[
+            'id' => 7, 'full_name' => 'Bea Cruz', 'relationship' => 'Guardian',
+            'school' => ['id' => 1, 'name' => 'S', 'timezone' => 'Asia/Manila'],
+        ]]]]),
+        '*/api/notification-preferences' => Http::response(['preferences' => []]),
+        '*/api/students/7/status' => Http::response(['date' => now('Asia/Manila')->toDateString(), 'timeline' => []]),
+        '*' => Http::response([], 200),
+    ]);
+
+    $user = gateUser();
+    // A local override the server hasn't confirmed yet.
+    Student::create(['remote_id' => 7, 'full_name' => 'Bea Cruz', 'relationship' => 'Parent', 'relationship_pending' => true]);
+
+    \App\Services\Data\PullTapsFromServer::forUser($user);
+
+    // /api/me said 'Guardian' but our unsynced 'Parent' must survive.
+    expect(Student::where('remote_id', 7)->value('relationship'))->toBe('Parent');
 });
 
 it('pushes the link request as the account that submitted it — not an arbitrary user', function () {
