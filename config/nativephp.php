@@ -113,6 +113,7 @@ return [
         // 'NSCameraUsageDescription' => 'Used to take a profile photo.',
         // 'NSMicrophoneUsageDescription' => 'Used to record audio with your videos.',
         // 'NSPhotoLibraryUsageDescription' => 'Used to select photos for your post.',
+        'push_notifications' => env('NATIVEPHP_PUSH_NOTIFICATIONS', false),
     ],
 
     /*

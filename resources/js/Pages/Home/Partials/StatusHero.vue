@@ -21,7 +21,7 @@ const presenceLabel = computed(() => ({
 
 <template>
     <section class="rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-6">
-        <p class="text-sm text-gray-500">{{ student?.full_name }}</p>
+        <p class="text-sm text-gray-500 dark:text-gray-400">{{ student?.full_name }}</p>
         <p class="text-3xl font-semibold mt-1 text-gray-900 dark:text-gray-100">
             {{ presenceLabel }}
         </p>

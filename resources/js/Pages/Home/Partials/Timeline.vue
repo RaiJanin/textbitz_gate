@@ -28,8 +28,8 @@ defineProps({
                 :key="i"
                 class="flex justify-between text-sm border-b border-gray-100 dark:border-gray-700 pb-2 last:border-0"
             >
-                <span class="font-medium">{{ tap.direction === 'in' ? 'Arrived' : 'Dismissed' }}</span>
-                <span class="text-gray-500">
+                <span class="font-medium text-gray-800 dark:text-gray-300">{{ tap.direction === 'in' ? 'Arrived' : 'Dismissed' }}</span>
+                <span class="text-gray-500 dark:text-gray-400">
                     {{ tap.at }} · {{ tap.gate ?? '—' }}<span v-if="tap.is_late" class="text-amber-600"> · late</span>
                 </span>
             </li>
