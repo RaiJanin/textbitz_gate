@@ -24,7 +24,7 @@ class PreferenceController extends Controller
             'weekly_summary' => 'sometimes|boolean',
         ]);
 
-        $preference = NotificationPreference::firstOrNew(['role' => $validated['role']]);
+        $preference = NotificationPreference::firstOrNew(['user_id' => $request->user()->id, 'role' => $validated['role']]);
         $preference->fill(collect($validated)->except('role')->all());
         $preference->sync_status = NotificationPreference::SYNC_STATUS_PENDING;
         $preference->save();

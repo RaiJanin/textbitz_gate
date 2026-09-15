@@ -1,9 +1,11 @@
 <?php
 
 use App\Models\NotificationPreference;
+use App\Models\Student;
 use App\Models\User;
 use App\Services\Data\PullTapsFromServer;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Http;
 
 function syncUser(): User
@@ -16,7 +18,9 @@ function syncUser(): User
 }
 
 it('reports the last sync + pending write count as plain JSON', function () {
-    Cache::put(PullTapsFromServer::REPORT_CACHE_KEY, [
+    $user = syncUser();
+
+    Cache::put(PullTapsFromServer::reportCacheKey($user), [
         'at' => now()->toIso8601String(),
         'new_taps' => 3,
         'updated_taps' => 1,
@@ -24,6 +28,7 @@ it('reports the last sync + pending write count as plain JSON', function () {
     ]);
 
     NotificationPreference::create([
+        'user_id' => $user->id,
         'role' => 'guardian',
         'arrival' => false,
         'departure' => true,
@@ -32,7 +37,7 @@ it('reports the last sync + pending write count as plain JSON', function () {
         'sync_status' => NotificationPreference::SYNC_STATUS_PENDING,
     ]);
 
-    $this->actingAs(syncUser())
+    $this->actingAs($user)
         ->getJson('/api/sync/status')
         ->assertOk()
         ->assertJsonPath('report.new_taps', 3)
@@ -64,10 +69,10 @@ it('the recurring pull writes a sync report with change counts', function () {
 
     Cache::put('remote_connectivity', true, 60);
 
-    syncUser();
+    $user = syncUser();
     PullTapsFromServer::refreshLinkedStudents();
 
-    $report = Cache::get(PullTapsFromServer::REPORT_CACHE_KEY);
+    $report = Cache::get(PullTapsFromServer::reportCacheKey($user));
 
     expect($report)->not->toBeNull()
         ->and($report['new_taps'])->toBe(1)
@@ -82,70 +87,81 @@ it('drops locally cached students the account is no longer linked to', function 
         '*/api/health' => Http::response(['alive' => true]),
     ]);
 
-    // Stale rows from a previous login / demo seed.
-    \App\Models\Student::create(['remote_id' => 1, 'full_name' => 'Diana Reyes']);
-    \App\Models\Student::create(['remote_id' => 2, 'full_name' => 'Marco Reyes']);
+    $user = syncUser();
 
-    syncUser();
+    // Stale rows cached for THIS account from a previous sync / demo seed.
+    Student::create(['user_id' => $user->id, 'remote_id' => 1, 'full_name' => 'Diana Reyes']);
+    Student::create(['user_id' => $user->id, 'remote_id' => 2, 'full_name' => 'Marco Reyes']);
+
     PullTapsFromServer::refreshLinkedStudents();
 
-    expect(\App\Models\Student::count())->toBe(0);
+    expect(Student::where('user_id', $user->id)->count())->toBe(0);
 });
 
-it('wipes the previous account cache when a different account is adopted', function () {
-    Cache::put(PullTapsFromServer::CACHE_OWNER_KEY, 99); // cache belongs to remote user 99
-    \App\Models\Student::create(['remote_id' => 5, 'full_name' => 'Someone Elses Kid']);
-    \App\Models\TapEvent::create([
-        'student_id' => 1, 'direction' => 'in', 'tapped_at' => now(),
+it('keeps a previous account\'s cached students when switching back to it', function () {
+    $accountA = User::factory()->create([
+        'phone_number' => '+639170000111',
+        'password' => Hash::make('secret123'),
+        'remote_id' => 1,
+        'remote_token' => 'tok-1',
     ]);
-
-    PullTapsFromServer::adoptAccount(syncUser()); // remote_id 1
-
-    expect(\App\Models\Student::count())->toBe(0)
-        ->and(\App\Models\TapEvent::count())->toBe(0)
-        ->and((int) Cache::get(PullTapsFromServer::CACHE_OWNER_KEY))->toBe(1);
-});
-
-it('adopts an unknown-owner cache without wiping it', function () {
-    \App\Models\Student::create(['remote_id' => 1, 'full_name' => 'Diana Reyes']);
-
-    PullTapsFromServer::adoptAccount(syncUser()); // remote_id 1, no owner key set
-
-    expect(\App\Models\Student::count())->toBe(1)
-        ->and((int) Cache::get(PullTapsFromServer::CACHE_OWNER_KEY))->toBe(1);
-});
-
-it('pulls the switched-to account\'s students into the cache on login', function () {
-    Cache::put('remote_connectivity', true, 60);
-    Cache::put(PullTapsFromServer::CACHE_OWNER_KEY, 99); // cache belongs to a previous account (user 99)
-    \App\Models\Student::create(['remote_id' => 500, 'full_name' => 'Old Account Kid']);
-
-    Http::fake([
-        '*/api/me' => Http::response([
-            'guardian' => ['students' => [[
-                'id' => 7, 'full_name' => 'Bea Cruz', 'grade' => '9',
-                'school' => ['id' => 1, 'name' => 'Sampaguita', 'timezone' => 'Asia/Manila'],
-            ]]],
-        ]),
-        '*/api/notification-preferences' => Http::response(['preferences' => []]),
-        '*/api/students/7/status' => Http::response(['date' => now('Asia/Manila')->toDateString(), 'timeline' => []]),
-        '*/api/health' => Http::response(['alive' => true]),
-        '*/api/login' => Http::response(['user' => ['id' => 2], 'token' => 'tok-2']),
-        '*' => Http::response([], 200),
-    ]);
-
-    // User 2 (remote_id 2) logs in on a device whose cache still holds user 99's data.
-    User::factory()->create([
+    $accountB = User::factory()->create([
         'phone_number' => '+639170000222',
-        'password' => \Illuminate\Support\Facades\Hash::make('secret123'),
+        'password' => Hash::make('secret123'),
         'remote_id' => 2,
         'remote_token' => 'tok-2',
     ]);
 
+    Student::create(['user_id' => $accountA->id, 'remote_id' => 501, 'full_name' => 'Ana Cruz']);
+    Student::create(['user_id' => $accountB->id, 'remote_id' => 502, 'full_name' => 'Bea Cruz']);
+
+    Cache::put('remote_connectivity', false, 60); // stay "offline" — no pull should run
+    Http::fake(); // guard against any stray real network call (logout, etc.)
+
+    // Switching to account B must not touch account A's cached rows.
     $this->post('/login', ['phone_number' => '+639170000222', 'password' => 'secret123'])
         ->assertRedirect(route('app.dashboard', absolute: false));
 
-    expect(\App\Models\Student::where('remote_id', 500)->exists())->toBeFalse() // old account's kid gone
-        ->and(\App\Models\Student::where('remote_id', 7)->value('full_name'))->toBe('Bea Cruz') // new account's kid present
-        ->and((int) Cache::get(PullTapsFromServer::CACHE_OWNER_KEY))->toBe(2);
+    expect(Student::where('remote_id', 501)->exists())->toBeTrue() // account A's kid still cached
+        ->and(Student::where('remote_id', 502)->exists())->toBeTrue(); // account B's kid still cached
+
+    // Switching back to account A must not have lost anything either.
+    $this->post('/logout')->assertRedirect('/');
+    $this->post('/login', ['phone_number' => '+639170000111', 'password' => 'secret123'])
+        ->assertRedirect(route('app.dashboard', absolute: false));
+
+    expect(Student::where('remote_id', 501)->exists())->toBeTrue()
+        ->and(Student::where('remote_id', 502)->exists())->toBeTrue();
+});
+
+it('never leaks another cached account\'s students into the signed-in account\'s pages', function () {
+    $accountA = User::factory()->create([
+        'phone_number' => '+639170000111',
+        'remote_id' => 1,
+        'remote_token' => 'tok-1',
+    ]);
+    $accountB = User::factory()->create([
+        'phone_number' => '+639170000222',
+        'remote_id' => 2,
+        'remote_token' => 'tok-2',
+    ]);
+
+    Student::create(['user_id' => $accountA->id, 'remote_id' => 501, 'full_name' => 'Ana Cruz']);
+    Student::create(['user_id' => $accountB->id, 'remote_id' => 502, 'full_name' => 'Bea Cruz']);
+
+    $onlyAccountBStudents = Student::query()->where('user_id', $accountB->id)->pluck('remote_id');
+
+    expect($onlyAccountBStudents)->toHaveCount(1)
+        ->and($onlyAccountBStudents->first())->toBe(502);
+
+    $this->actingAs($accountB)
+        ->getJson('/api/sync/status')
+        ->assertOk();
+
+    // Each account's own notification preferences stay isolated too.
+    NotificationPreference::create(['user_id' => $accountA->id, 'role' => 'guardian']);
+    NotificationPreference::create(['user_id' => $accountB->id, 'role' => 'guardian']);
+
+    expect(NotificationPreference::where('user_id', $accountA->id)->count())->toBe(1)
+        ->and(NotificationPreference::where('user_id', $accountB->id)->count())->toBe(1);
 });

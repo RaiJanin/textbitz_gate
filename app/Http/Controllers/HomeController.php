@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Student;
+use App\Services\Data\PullTapsFromServer;
 use App\Services\Remote\RemoteApiClient;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -13,6 +14,7 @@ class HomeController extends Controller
     {
         return Inertia::render('Home/Main', [
             'students' => Student::query()
+                ->where('user_id', $request->user()->id)
                 ->orderBy('full_name')
                 ->get(['id', 'remote_id', 'full_name', 'grade', 'section', 'relationship', 'school_name']),
         ]);
@@ -34,8 +36,16 @@ class HomeController extends Controller
             return response()->json($response['data']);
         }
 
+        if ($response['result'] === RemoteApiClient::RESULT_FORBIDDEN) {
+            // An admin detached this student from the guardian — drop the local
+            // copy instead of continuing to show stale, no-longer-theirs data.
+            PullTapsFromServer::detachStudent($user, $remoteId);
+
+            return response()->json(['message' => 'This child is no longer linked to your account.'], 404);
+        }
+
         // Offline fallback: rebuild a minimal status from the local tap cache.
-        $student = Student::byRemoteId($remoteId)->firstOrFail();
+        $student = Student::where('user_id', $user->id)->byRemoteId($remoteId)->firstOrFail();
         $today = now(($student->school_timezone ?: 'Asia/Manila'))->toDateString();
 
         $taps = $student->tapEvents()

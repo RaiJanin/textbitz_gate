@@ -18,9 +18,10 @@ function bridgedUser(): User
     ]);
 }
 
-function pendingGuardianPref(): NotificationPreference
+function pendingGuardianPref(User $user): NotificationPreference
 {
     return NotificationPreference::create([
+        'user_id' => $user->id,
         'role' => 'guardian',
         'arrival' => false,
         'departure' => true,
@@ -43,8 +44,8 @@ beforeEach(function () {
 });
 
 it('flushes a pending preference synchronously (no queue worker)', function () {
-    bridgedUser();
-    $pref = pendingGuardianPref();
+    $user = bridgedUser();
+    $pref = pendingGuardianPref($user);
 
     $flushed = FlushPendingSyncs::run();
 
@@ -53,8 +54,8 @@ it('flushes a pending preference synchronously (no queue worker)', function () {
 });
 
 it('runs the scheduler task set on the foreground event', function () {
-    bridgedUser();
-    $pref = pendingGuardianPref();
+    $user = bridgedUser();
+    $pref = pendingGuardianPref($user);
 
     event(new AppForegrounded(now()->valueOf()));
 
@@ -67,8 +68,8 @@ it('runs the scheduler task set on the foreground event', function () {
 });
 
 it('flushes pending writes and records the timestamp when backgrounded', function () {
-    bridgedUser();
-    $pref = pendingGuardianPref();
+    $user = bridgedUser();
+    $pref = pendingGuardianPref($user);
 
     event(new AppBackgrounded(now()->valueOf()));
 

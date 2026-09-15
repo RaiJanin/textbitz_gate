@@ -44,7 +44,12 @@ class PushPreferenceChangeJob implements ShouldQueue
             return;
         }
 
-        $user = PullTapsFromServer::activeUser()
+        // Authenticate as the account this preference actually belongs to, so a
+        // change made under one cached account is never pushed to another's
+        // server session. Fall back to the single connected account only for
+        // rows created before ownership was tracked.
+        $user = $this->preference->user
+            ?? PullTapsFromServer::activeUser()
             ?? User::whereNotNull('remote_token')->first();
 
         if (! $user || ! $user->remote_token) {

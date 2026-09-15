@@ -13,6 +13,7 @@ class RemoteApiClient
     public const RESULT_RETRY = 'retry';
     public const RESULT_FAILED = 'failed';
     public const RESULT_UNAUTHORIZED = 'unauthorized';
+    public const RESULT_FORBIDDEN = 'forbidden';
 
     public static function get(User $user, string $endpoint, array $query = []): array
     {
@@ -132,6 +133,14 @@ class RemoteApiClient
                 'result' => self::RESULT_UNAUTHORIZED,
                 'message' => 'Remote token invalid or expired',
                 'status' => 401,
+            ];
+        }
+
+        if ($response->status() === 403) {
+            return [
+                'result' => self::RESULT_FORBIDDEN,
+                'message' => 'Server denied access to this resource',
+                'status' => 403,
             ];
         }
 

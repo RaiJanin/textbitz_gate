@@ -49,16 +49,17 @@ class HandleInertiaRequests extends Middleware
             ],
             'gate' => [
                 // Global list so the realtime channel manager always has the
-                // linked students, regardless of which page is showing. Gated on
-                // cache ownership so a previous account's (or demo) students
-                // don't leak between login and the first sync.
-                'linkedStudentIds' => fn () => PullTapsFromServer::cacheBelongsTo($request->user())
-                    ? Student::query()->whereNotNull('remote_id')->orderBy('id')->pluck('remote_id')->values()
+                // linked students, regardless of which page is showing. Scoped
+                // to the signed-in account — every cached row carries its own
+                // owner, so other accounts cached on this device never leak in.
+                'linkedStudentIds' => fn () => $request->user()
+                    ? Student::query()->where('user_id', $request->user()->id)->whereNotNull('remote_id')->orderBy('id')->pluck('remote_id')->values()
                     : [],
-                'sync' => fn () => cache(PullTapsFromServer::REPORT_CACHE_KEY),
+                'sync' => fn () => $request->user() ? cache(PullTapsFromServer::reportCacheKey($request->user())) : null,
                 // Guardian toggles so local notifications can be filtered client-side.
-                'notificationPreferences' => fn () => PullTapsFromServer::cacheBelongsTo($request->user())
-                    ? NotificationPreference::where('role', NotificationPreference::ROLE_GUARDIAN)
+                'notificationPreferences' => fn () => $request->user()
+                    ? NotificationPreference::where('user_id', $request->user()->id)
+                        ->where('role', NotificationPreference::ROLE_GUARDIAN)
                         ->first(['arrival', 'departure', 'late_alert', 'weekly_summary'])
                     : null,
             ],

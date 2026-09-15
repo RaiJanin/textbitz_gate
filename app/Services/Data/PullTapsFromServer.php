@@ -2,6 +2,7 @@
 
 namespace App\Services\Data;
 
+use App\Jobs\DeleteDetachedStudentJob;
 use App\Models\Gate;
 use App\Models\LinkRequest;
 use App\Models\NotificationPreference;
@@ -18,23 +19,24 @@ use Illuminate\Support\Facades\Log;
 /**
  * Pulls the read-only attendance data owned by the server into the local
  * SQLite cache so the app works offline. Each recurring run leaves a "sync
- * report" in the cache (`gate.last_sync_report`) that the frontend polls via
- * `GET /api/sync/status` to toast "N attendance updates synced".
+ * report" in the cache (per-user `gate.last_sync_report.{id}`) that the
+ * frontend polls via `GET /api/sync/status` to toast "N attendance updates
+ * synced".
  *
- * The local cache mirrors exactly ONE remote account at a time (the device is
- * single-user). `adoptAccount()` wipes it whenever the signed-in account
- * changes so demo data / a previous login never bleeds across accounts.
+ * The device can hold more than one account's data at once: every cached row
+ * (`students`, `notification_preferences`) carries the local `user_id` it
+ * belongs to, so switching accounts never wipes anything — a previously
+ * signed-in account's students/preferences are simply filtered back in the
+ * moment it signs in again, with no refetch needed until the next sync.
  */
 class PullTapsFromServer
 {
-    public const REPORT_CACHE_KEY = 'gate.last_sync_report';
-
-    /** Remote user id the local read-cache currently belongs to. */
-    public const CACHE_OWNER_KEY = 'gate.cache_owner_remote_id';
+    public const REPORT_CACHE_PREFIX = 'gate.last_sync_report';
 
     /**
-     * The single account whose data the local cache mirrors: the signed-in user
-     * when we're in a request, otherwise the most recently connected account.
+     * The account whose data a background pull should target: the signed-in
+     * user when we're in a request, otherwise the most recently connected
+     * account on this device.
      */
     public static function activeUser(): ?User
     {
@@ -49,60 +51,23 @@ class PullTapsFromServer
             ->first();
     }
 
-    /**
-     * True when the local cache belongs to the given account (or to nobody yet,
-     * e.g. a fresh install still showing demo data). Used by the read layer to
-     * avoid flashing another account's students between login and the first sync.
-     */
-    public static function cacheBelongsTo(?User $user): bool
+    public static function reportCacheKey(User $user): string
     {
-        if (! $user) {
-            return false;
-        }
-
-        $owner = Cache::get(self::CACHE_OWNER_KEY);
-
-        return $owner === null || (int) $owner === (int) $user->remote_id;
+        return self::REPORT_CACHE_PREFIX.'.'.$user->id;
     }
 
     /**
-     * Claim the local read-cache for this account. When it was demonstrably
-     * owned by a *different* remote account, wipe what that account left behind
-     * first. An unknown owner (fresh install / first run after this shipped) is
-     * adopted silently — `pruneStudentsNotIn()` on the next `/api/me` still
-     * reconciles any stale students.
+     * The server returned 403 for one of this account's students — an admin
+     * detached the guardian↔student link. Drop the local copy (cascades its
+     * tap_events) so the app stops showing a child that's no longer theirs.
      */
-    public static function adoptAccount(User $user): void
+    public static function detachStudent(User $user, int $remoteId): void
     {
-        if (! $user->remote_id) {
-            return; // not connected to the server yet — nothing to scope to
+        $student = Student::where('user_id', $user->id)->byRemoteId($remoteId)->first();
+
+        if ($student) {
+            DeleteDetachedStudentJob::dispatchSync($student);
         }
-
-        $owner = Cache::get(self::CACHE_OWNER_KEY);
-
-        if ($owner !== null && (int) $owner === (int) $user->remote_id) {
-            return;
-        }
-
-        if ($owner !== null) {
-            self::purgeCache();
-        }
-
-        Cache::forever(self::CACHE_OWNER_KEY, (int) $user->remote_id);
-    }
-
-    /**
-     * Wipe the local read-cache (server-owned data only — never touches users
-     * or auth). Safe to call offline.
-     */
-    public static function purgeCache(): void
-    {
-        TapEvent::query()->delete();
-        Student::query()->delete();
-        Gate::query()->delete();
-        LinkRequest::query()->delete();
-        NotificationPreference::query()->delete();
-        Cache::forget(self::REPORT_CACHE_KEY);
     }
 
     /**
@@ -120,7 +85,7 @@ class PullTapsFromServer
             return;
         }
 
-        self::cacheReport(self::forUser($user));
+        self::cacheReport($user, self::forUser($user));
     }
 
     /**
@@ -176,9 +141,6 @@ class PullTapsFromServer
     {
         $report = ['new_taps' => 0, 'updated_taps' => 0, 'students' => []];
 
-        // Make sure the local cache belongs to this account before we write to it.
-        self::adoptAccount($user);
-
         $me = RemoteApiClient::get($user, '/api/me');
 
         if ($me['result'] !== RemoteApiClient::RESULT_SUCCESS) {
@@ -192,7 +154,7 @@ class PullTapsFromServer
         // Adopt the guardian's default relationship from the server, unless a
         // link request that would set it is still waiting to sync.
         $role = $me['data']['guardian']['role'] ?? null;
-        if ($role && ! LinkRequest::where('sync_status', LinkRequest::SYNC_STATUS_PENDING)->exists()) {
+        if ($role && ! LinkRequest::where('user_id', $user->id)->where('sync_status', LinkRequest::SYNC_STATUS_PENDING)->exists()) {
             $user->update(['active_role' => \App\Support\Relationship::normalize($role)]);
         }
 
@@ -204,12 +166,14 @@ class PullTapsFromServer
 
         $students = $students->unique('id')->values();
 
-        // The server is authoritative: drop any locally cached student the
-        // account is no longer linked to (an empty list clears them all).
-        self::pruneStudentsNotIn($students->pluck('id')->all());
+        // The server is authoritative for THIS account: drop any student
+        // cached under this user_id that the account is no longer linked to
+        // (an empty list clears them all). Other accounts' cached students on
+        // this device are untouched.
+        self::pruneStudentsNotIn($user, $students->pluck('id')->all());
 
         $students->each(function (array $remote) use ($user, &$report) {
-            $student = self::upsertStudent($remote);
+            $student = self::upsertStudent($remote, $user);
             $counts = self::pullStudentTaps($user, $student);
 
             $report['new_taps'] += $counts['new'];
@@ -224,14 +188,15 @@ class PullTapsFromServer
     }
 
     /**
-     * Delete cached students whose remote id isn't in the given set. Model
-     * deletes so `tap_events` cascade. An empty set clears every row.
+     * Delete this account's cached students whose remote id isn't in the
+     * given set. Model deletes so `tap_events` cascade. An empty set clears
+     * every student cached for this user.
      *
      * @param  array<int, int>  $remoteIds
      */
-    private static function pruneStudentsNotIn(array $remoteIds): void
+    private static function pruneStudentsNotIn(User $user, array $remoteIds): void
     {
-        $query = Student::query();
+        $query = Student::query()->where('user_id', $user->id);
 
         if ($remoteIds !== []) {
             $query->whereNotIn('remote_id', $remoteIds);
@@ -248,18 +213,22 @@ class PullTapsFromServer
     {
         $user = self::activeUser();
 
-        if (! $user || ! ServerConnectivityService::isOnline()) {
-            return Cache::get(self::REPORT_CACHE_KEY);
+        if (! $user) {
+            return null;
         }
 
-        return self::cacheReport(self::forUser($user));
+        if (! ServerConnectivityService::isOnline()) {
+            return Cache::get(self::reportCacheKey($user));
+        }
+
+        return self::cacheReport($user, self::forUser($user));
     }
 
     /**
      * @param  array{new_taps:int, updated_taps:int, students:array<int,string>}  $totals
      * @return array<string, mixed>
      */
-    private static function cacheReport(array $totals): array
+    private static function cacheReport(User $user, array $totals): array
     {
         $report = [
             'at' => now()->toIso8601String(),
@@ -268,14 +237,14 @@ class PullTapsFromServer
             'students' => $totals['students'],
         ];
 
-        Cache::put(self::REPORT_CACHE_KEY, $report, now()->addHours(6));
+        Cache::put(self::reportCacheKey($user), $report, now()->addHours(6));
 
         return $report;
     }
 
-    private static function upsertStudent(array $remote): Student
+    private static function upsertStudent(array $remote, User $user): Student
     {
-        $student = Student::firstOrNew(['remote_id' => $remote['id']]);
+        $student = Student::firstOrNew(['remote_id' => $remote['id'], 'user_id' => $user->id]);
 
         $student->fill([
             'full_name' => $remote['full_name'],
@@ -349,7 +318,7 @@ class PullTapsFromServer
         }
 
         foreach ($prefs['data']['preferences'] ?? [] as $preference) {
-            $local = NotificationPreference::firstOrNew(['role' => $preference['role']]);
+            $local = NotificationPreference::firstOrNew(['user_id' => $user->id, 'role' => $preference['role']]);
 
             // Don't clobber a change the user made offline that hasn't synced yet.
             if ($local->sync_status === NotificationPreference::SYNC_STATUS_PENDING) {

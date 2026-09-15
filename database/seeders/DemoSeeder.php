@@ -67,7 +67,7 @@ class DemoSeeder extends Seeder
         }
 
         NotificationPreference::updateOrCreate(
-            ['role' => NotificationPreference::ROLE_GUARDIAN],
+            ['user_id' => $user->id, 'role' => NotificationPreference::ROLE_GUARDIAN],
             [
                 'arrival' => true,
                 'departure' => true,
@@ -94,12 +94,12 @@ class DemoSeeder extends Seeder
             // [remote_id, name, grade, section, punctuality bias: chance of being on time]
             ['remote_id' => 1, 'full_name' => 'Diana Reyes', 'grade' => '9', 'section' => 'Rizal', 'onTime' => 0.88],
             ['remote_id' => 2, 'full_name' => 'Marco Reyes', 'grade' => '11', 'section' => 'Mabini', 'onTime' => 0.62],
-        ])->map(function (array $attributes) {
+        ])->map(function (array $attributes) use ($user) {
             $onTime = $attributes['onTime'];
             unset($attributes['onTime']);
 
             $student = Student::updateOrCreate(
-                ['remote_id' => $attributes['remote_id']],
+                ['user_id' => $user->id, 'remote_id' => $attributes['remote_id']],
                 [
                     ...$attributes,
                     'relationship' => 'Mom',

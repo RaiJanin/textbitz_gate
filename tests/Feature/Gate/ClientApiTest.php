@@ -4,6 +4,7 @@ use App\Models\LinkRequest;
 use App\Models\NotificationPreference;
 use App\Models\Student;
 use App\Models\User;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 
 function gateUser(): User
@@ -40,7 +41,10 @@ it('serves a stale local status when the server is unreachable', function () {
         '*' => Http::response('', 500),
     ]);
 
+    $user = gateUser();
+
     $student = Student::create([
+        'user_id' => $user->id,
         'remote_id' => 7,
         'full_name' => 'Diana Reyes',
         'school_timezone' => 'Asia/Manila',
@@ -54,7 +58,7 @@ it('serves a stale local status when the server is unreachable', function () {
         'synced_at' => now(),
     ]);
 
-    $this->actingAs(gateUser())
+    $this->actingAs($user)
         ->getJson('/api/students/7/status')
         ->assertOk()
         ->assertJsonPath('stale', true)
@@ -120,7 +124,7 @@ it('changes a per-student relationship — locally now, pushed to the server', f
     ]);
 
     $user = gateUser();
-    Student::create(['remote_id' => 7, 'full_name' => 'Bea Cruz', 'relationship' => 'Guardian']);
+    Student::create(['user_id' => $user->id, 'remote_id' => 7, 'full_name' => 'Bea Cruz', 'relationship' => 'Guardian']);
 
     $this->actingAs($user)
         ->from('/settings')
@@ -150,7 +154,7 @@ it('keeps a pending relationship change through an /api/me sync', function () {
 
     $user = gateUser();
     // A local override the server hasn't confirmed yet.
-    Student::create(['remote_id' => 7, 'full_name' => 'Bea Cruz', 'relationship' => 'Parent', 'relationship_pending' => true]);
+    Student::create(['user_id' => $user->id, 'remote_id' => 7, 'full_name' => 'Bea Cruz', 'relationship' => 'Parent', 'relationship_pending' => true]);
 
     \App\Services\Data\PullTapsFromServer::forUser($user);
 
@@ -193,8 +197,9 @@ it('flushes pending preference changes on server reconnect', function () {
         '*/api/me' => Http::response(['guardian' => null, 'student' => null], 200),
     ]);
 
-    gateUser();
+    $user = gateUser();
     $pref = NotificationPreference::create([
+        'user_id' => $user->id,
         'role' => 'guardian',
         'arrival' => false,
         'sync_status' => NotificationPreference::SYNC_STATUS_PENDING,
@@ -203,4 +208,76 @@ it('flushes pending preference changes on server reconnect', function () {
     \App\Services\Data\DataSyncToJob::retryPendingSyncs();
 
     expect($pref->fresh()->sync_status)->toBe(NotificationPreference::SYNC_STATUS_SYNCED);
+});
+
+it('drops the local student and taps when the server forbids status for a detached child', function () {
+    Http::fake(['*/api/students/7/status' => Http::response(['message' => 'Forbidden'], 403)]);
+
+    $user = gateUser();
+    $student = Student::create(['user_id' => $user->id, 'remote_id' => 7, 'full_name' => 'Bea Cruz']);
+    $student->tapEvents()->create(['direction' => 'in', 'tapped_at' => now(), 'synced_at' => now()]);
+
+    $this->actingAs($user)
+        ->getJson('/api/students/7/status')
+        ->assertNotFound()
+        ->assertJsonPath('message', 'This child is no longer linked to your account.');
+
+    expect(Student::where('remote_id', 7)->exists())->toBeFalse()
+        ->and(\App\Models\TapEvent::count())->toBe(0); // cascaded
+});
+
+it('drops the local student when the server forbids history for a detached child', function () {
+    Http::fake(['*/api/students/7/history' => Http::response(['message' => 'Forbidden'], 403)]);
+
+    $user = gateUser();
+    Student::create(['user_id' => $user->id, 'remote_id' => 7, 'full_name' => 'Bea Cruz']);
+
+    $this->actingAs($user)
+        ->getJson('/api/students/7/history')
+        ->assertNotFound();
+
+    expect(Student::where('remote_id', 7)->exists())->toBeFalse();
+});
+
+it('drops the local student when the server forbids the alerts feed for a detached child', function () {
+    Http::fake(['*/api/students/7/alerts' => Http::response(['message' => 'Forbidden'], 403)]);
+
+    $user = gateUser();
+    Student::create(['user_id' => $user->id, 'remote_id' => 7, 'full_name' => 'Bea Cruz']);
+
+    $this->actingAs($user)
+        ->getJson('/api/students/7/alerts')
+        ->assertNotFound();
+
+    expect(Student::where('remote_id', 7)->exists())->toBeFalse();
+});
+
+it('drops the local student when a relationship change is rejected as forbidden (detached mid-flight)', function () {
+    Cache::put('remote_connectivity', true, 60);
+    Http::fake([
+        '*/api/health' => Http::response(['alive' => true]),
+        '*/api/students/7/relationship' => Http::response(['message' => 'Forbidden'], 403),
+    ]);
+
+    $user = gateUser();
+    Student::create(['user_id' => $user->id, 'remote_id' => 7, 'full_name' => 'Bea Cruz', 'relationship' => 'Guardian']);
+
+    $this->actingAs($user)
+        ->from('/settings')
+        ->put('/settings/students/7/relationship', ['relationship' => 'Parent'])
+        ->assertRedirect('/settings')
+        ->assertSessionHas('error', 'This child is no longer linked to your account.');
+
+    expect(Student::where('remote_id', 7)->exists())->toBeFalse();
+});
+
+it('leaves an already-detached (not locally cached) student alone', function () {
+    // The job dispatch is a no-op when there's nothing local to clean up.
+    Http::fake(['*/api/students/7/status' => Http::response(['message' => 'Forbidden'], 403)]);
+
+    $this->actingAs(gateUser())
+        ->getJson('/api/students/7/status')
+        ->assertNotFound();
+
+    expect(Student::count())->toBe(0);
 });

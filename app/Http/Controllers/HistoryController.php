@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Student;
+use App\Services\Data\PullTapsFromServer;
 use App\Services\Remote\RemoteApiClient;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -13,6 +14,7 @@ class HistoryController extends Controller
     {
         return Inertia::render('History/Main', [
             'students' => Student::query()
+                ->where('user_id', $request->user()->id)
                 ->orderBy('full_name')
                 ->get(['id', 'remote_id', 'full_name', 'grade', 'section']),
         ]);
@@ -35,8 +37,16 @@ class HistoryController extends Controller
             return response()->json($response['data']);
         }
 
+        if ($response['result'] === RemoteApiClient::RESULT_FORBIDDEN) {
+            // An admin detached this student from the guardian — drop the local
+            // copy instead of continuing to show stale, no-longer-theirs data.
+            PullTapsFromServer::detachStudent($request->user(), $remoteId);
+
+            return response()->json(['message' => 'This child is no longer linked to your account.'], 404);
+        }
+
         // Offline: fold the local tap cache into day records for the requested month.
-        $student = Student::byRemoteId($remoteId)->firstOrFail();
+        $student = Student::where('user_id', $request->user()->id)->byRemoteId($remoteId)->firstOrFail();
         $tz = $student->school_timezone ?: 'Asia/Manila';
         $anchor = $month ? \Illuminate\Support\Carbon::createFromFormat('Y-m', $month, $tz) : now($tz);
 

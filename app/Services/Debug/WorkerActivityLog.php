@@ -94,7 +94,9 @@ class WorkerActivityLog
                 'last_foreground_at' => self::msToIso(Cache::get('gate.last_foreground_at')),
                 'last_background_at' => self::msToIso(Cache::get('gate.last_background_at')),
             ],
-            'sync' => Cache::get(\App\Services\Data\PullTapsFromServer::REPORT_CACHE_KEY),
+            'sync' => ($user = \App\Services\Data\PullTapsFromServer::activeUser())
+                ? Cache::get(\App\Services\Data\PullTapsFromServer::reportCacheKey($user))
+                : null,
         ];
     }
 

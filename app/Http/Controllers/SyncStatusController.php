@@ -18,7 +18,7 @@ class SyncStatusController extends Controller
 {
     public function show(Request $request): JsonResponse
     {
-        return response()->json($this->payload());
+        return response()->json($this->payload($request));
     }
 
     /**
@@ -28,16 +28,18 @@ class SyncStatusController extends Controller
     {
         PullTapsFromServer::pullNow();
 
-        return response()->json($this->payload());
+        return response()->json($this->payload($request));
     }
 
-    private function payload(): array
+    private function payload(Request $request): array
     {
+        $userId = $request->user()->id;
+
         return [
             'online' => ServerConnectivityService::isOnline(),
-            'report' => cache(PullTapsFromServer::REPORT_CACHE_KEY),
-            'pending_writes' => NotificationPreference::where('sync_status', '!=', NotificationPreference::SYNC_STATUS_SYNCED)->count()
-                + LinkRequest::where('sync_status', '!=', LinkRequest::SYNC_STATUS_SYNCED)->count(),
+            'report' => cache(PullTapsFromServer::reportCacheKey($request->user())),
+            'pending_writes' => NotificationPreference::where('user_id', $userId)->where('sync_status', '!=', NotificationPreference::SYNC_STATUS_SYNCED)->count()
+                + LinkRequest::where('user_id', $userId)->where('sync_status', '!=', LinkRequest::SYNC_STATUS_SYNCED)->count(),
         ];
     }
 }

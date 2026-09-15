@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Jobs\PushLinkRequestJob;
 use App\Models\LinkRequest;
 use App\Models\Student;
+use App\Services\Data\PullTapsFromServer;
 use App\Services\Remote\RemoteApiClient;
 use App\Services\Remote\ServerConnectivityService;
 use App\Support\Relationship;
@@ -55,7 +56,7 @@ class LinkController extends Controller
             'relationship' => ['required', Rule::in(Relationship::VALUES)],
         ]);
 
-        $student = Student::byRemoteId($remoteId)->firstOrFail();
+        $student = Student::where('user_id', $request->user()->id)->byRemoteId($remoteId)->firstOrFail();
 
         $student->update([
             'relationship' => $validated['relationship'],
@@ -71,6 +72,15 @@ class LinkController extends Controller
 
             if ($response['result'] === RemoteApiClient::RESULT_SUCCESS) {
                 $student->update(['relationship_pending' => false]);
+            }
+
+            if ($response['result'] === RemoteApiClient::RESULT_FORBIDDEN) {
+                // An admin detached this student from the guardian in the
+                // meantime — drop the local copy instead of leaving a phantom
+                // "pending" override on a child that isn't theirs anymore.
+                PullTapsFromServer::detachStudent($request->user(), $remoteId);
+
+                return back()->with('error', 'This child is no longer linked to your account.');
             }
         }
 

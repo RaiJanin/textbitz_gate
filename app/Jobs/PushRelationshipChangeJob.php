@@ -44,7 +44,12 @@ class PushRelationshipChangeJob implements ShouldQueue
             return;
         }
 
-        $user = PullTapsFromServer::activeUser()
+        // Authenticate as the account this student is cached under, so a
+        // relationship change made on one cached account is never pushed to
+        // another's server session. Fall back to the single connected account
+        // only for rows created before ownership was tracked.
+        $user = $this->student->user
+            ?? PullTapsFromServer::activeUser()
             ?? User::whereNotNull('remote_token')->first();
 
         if (! $user || ! $user->remote_token) {

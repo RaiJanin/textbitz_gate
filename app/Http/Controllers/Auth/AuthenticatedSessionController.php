@@ -38,16 +38,8 @@ class AuthenticatedSessionController extends Controller
         /** @var \App\Models\User $user */
         $user = Auth::user();
 
-        // Drop a previous account's cached students/taps up front so they never
-        // flash on screen — even when we're offline and can't reach the server.
-        if (! PullTapsFromServer::cacheBelongsTo($user)) {
-            PullTapsFromServer::purgeCache();
-        }
-
         RemoteAuthService::authenticateOrDefer($user, $request->string('password')->toString());
 
-        // Pull this account's students/taps now so the first screen isn't empty
-        // after an account switch (no-op offline; the heartbeat retries).
         rescue(fn () => PullTapsFromServer::pullNow(), report: false);
 
         return redirect()->intended(route('app.dashboard', absolute: false));
